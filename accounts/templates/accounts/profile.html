@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ profile_user.username }} - SecureShare{% endblock %}
+{% block content %}
+<div class="card">
+    <h1>{{ profile_user.username }}</h1>
+    <span class="badge">{{ profile.get_role_display }}</span>
+    <p>{{ profile.bio }}</p>
+    <p class="text-muted">
+        Contact info is stored as an encrypted blob (TODO: crypto_core decryption
+        by Mos. Mahabuba Akter Munia before display): {{ profile.encrypted_contact_info|default:"(none)" }}
+    </p>
+    {% if profile_user == user %}
+        <a href="{% url 'accounts:profile_edit' %}" class="btn">Edit profile</a>
+    {% endif %}
+</div>
+{% endblock %}

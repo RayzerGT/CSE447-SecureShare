@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard - SecureShare{% endblock %}
+{% block content %}
+<h1>Admin Security Dashboard</h1>
+<p class="text-muted">
+    TODO(Razeen Hassan): access is currently gated on Django's built-in
+    `is_staff` flag (moderation/permissions.py::admin_required) rather than
+    the finished RBAC core.
+</p>
+
+<div class="card">
+    <h2>System health</h2>
+    <p>Total registered users: <strong>{{ total_users }}</strong></p>
+    <p>Active sessions: <strong>{{ active_sessions }}</strong></p>
+    <p>Flagged posts pending review: <strong>{{ flagged_posts }}</strong></p>
+</div>
+
+<div class="card">
+    <h2>Recent security events</h2>
+    <table>
+        <thead><tr><th>Time</th><th>Actor</th><th>Action</th></tr></thead>
+        <tbody>
+            {% for event in recent_events %}
+            <tr>
+                <td>{{ event.created_at }}</td>
+                <td>{{ event.actor.username|default:"system" }}</td>
+                <td>{{ event.action }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3">No events logged yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <a href="{% url 'moderation:audit_logs' %}" class="btn">View full audit log</a>
+</div>
+
+<div class="card">
+    <a href="{% url 'moderation:user_management' %}" class="btn">User &amp; role management</a>
+    <a href="{% url 'moderation:content_moderation' %}" class="btn">Content moderation</a>
+</div>
+{% endblock %}

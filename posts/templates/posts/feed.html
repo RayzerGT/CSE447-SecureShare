@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Feed - SecureShare{% endblock %}
+{% block content %}
+<h1>Feed</h1>
+<p class="text-muted">
+    TODO(Mos. Mahabuba Akter Munia): this feed currently shows ALL posts regardless of
+    visibility - posts/permissions.py::visible_posts_queryset is a placeholder.
+</p>
+{% for post in posts %}
+<div class="card">
+    <a href="{% url 'accounts:profile_detail' post.owner.username %}">{{ post.owner.username }}</a>
+    <span class="badge {{ post.visibility }}">{{ post.get_visibility_display }}</span>
+    {% if post.image %}<img class="post-image" src="{{ post.image.url }}" alt="post image">{% endif %}
+    <p>{{ post.caption }}</p>
+    <a href="{% url 'posts:detail' post.id %}">View &amp; comment</a>
+</div>
+{% empty %}
+<p>No posts yet. <a href="{% url 'posts:upload' %}">Be the first to upload.</a></p>
+{% endfor %}
+{% endblock %}

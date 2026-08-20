@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Content Moderation - SecureShare{% endblock %}
+{% block content %}
+<h1>Global content moderation</h1>
+<p class="text-muted">
+    TODO(Mos. Mahabuba Akter Munia): flagging mechanism (users reporting posts)
+    isn't built yet - Post.is_flagged just needs a "report" action wired somewhere.
+</p>
+<div class="card">
+    {% for post in flagged_posts %}
+    <div class="card">
+        <p>{{ post.owner.username }} - {{ post.caption }}</p>
+        <form method="post" class="inline-form">
+            {% csrf_token %}
+            <input type="hidden" name="post_id" value="{{ post.id }}">
+            <button name="action" value="delete_post" class="danger" data-confirm="Delete this post?">Delete post</button>
+        </form>
+    </div>
+    {% empty %}
+    <p>No flagged posts.</p>
+    {% endfor %}
+</div>
+{% endblock %}

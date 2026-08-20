@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Register - SecureShare{% endblock %}
+{% block content %}
+<div class="card">
+    <h1>Create your account</h1>
+    <p class="text-muted">
+        User info is intended to be encrypted at rest and passwords hashed+salted
+        from scratch (Afnan Satter / Mos. Mahabuba Akter Munia) - not yet wired in this skeleton.
+    </p>
+    <form method="post" class="stacked-form">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Register</button>
+    </form>
+    <p class="text-muted">Already have an account? <a href="{% url 'accounts:login' %}">Log in</a></p>
+</div>
+{% endblock %}

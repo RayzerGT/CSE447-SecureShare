@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Login - SecureShare{% endblock %}
+{% block content %}
+<div class="card">
+    <h1>Log in</h1>
+    <form method="post" class="stacked-form">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Continue</button>
+    </form>
+    <p class="text-muted">No account yet? <a href="{% url 'accounts:register' %}">Register</a></p>
+</div>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ partner.username }} - Messages{% endblock %}
+{% block content %}
+<h1>Conversation with {{ partner.username }}</h1>
+<p class="text-muted">
+    TODO(Afnan Satter): messages are stored/shown as plaintext in this skeleton -
+    crypto_core encryption + MAC verification (Munia's facade) are not yet wired in.
+</p>
+<div class="card">
+    {% for message in messages %}
+        <p>
+            <strong>{{ message.sender.username }}:</strong>
+            {{ message.plaintext_body }}
+            <span class="text-muted">({{ message.created_at }})</span>
+        </p>
+    {% empty %}
+        <p>No messages yet - say hello.</p>
+    {% endfor %}
+</div>
+<form method="post" class="stacked-form">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Send</button>
+</form>
+{% endblock %}

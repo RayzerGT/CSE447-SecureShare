@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}User Management - SecureShare{% endblock %}
+{% block content %}
+<h1>User &amp; role management</h1>
+<div class="card">
+    <table>
+        <thead>
+            <tr><th>User</th><th>Role</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+            {% for u in users %}
+            <tr>
+                <td>{{ u.username }}</td>
+                <td>{{ u.profile.get_role_display|default:"user" }}</td>
+                <td>{{ u.account_state.get_status_display|default:"active" }}</td>
+                <td>
+                    <form method="post" class="inline-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="user_id" value="{{ u.id }}">
+                        <button name="action" value="promote">Promote</button>
+                        <button name="action" value="demote">Demote</button>
+                        <button name="action" value="lock">Lock</button>
+                        <button name="action" value="suspend">Suspend</button>
+                        <button name="action" value="ban" class="danger" data-confirm="Ban this user?">Ban</button>
+                        <button name="action" value="reactivate">Reactivate</button>
+                        <button name="action" value="revoke_sessions" class="danger" data-confirm="Revoke all sessions for this user?">Revoke sessions</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

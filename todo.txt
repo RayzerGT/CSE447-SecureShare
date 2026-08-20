@@ -1,0 +1,192 @@
+================================================================================
+SecureShare -- Team Task Breakdown (todo.txt)
+================================================================================
+Project : SecureShare (CSE447, BRACU_flex Group 05)
+Team    : Afnan Satter, Mos. Mahabuba Akter Munia, Razeen Hassan
+
+This is the authoritative ownership document. Task assignment was decided
+interactively and does not follow app boundaries exactly - several apps
+(accounts/, posts/, moderation/) are split between two people. Read your own
+section fully, including the file-by-file notes.
+
+CURRENT STATUS
+--------------------------------------------------------------------------------
+The full skeleton exists: all 6 apps (accounts, crypto_core, posts,
+messaging, social, moderation) are wired up and runnable end-to-end -
+routing, models, views, templates. What's NOT implemented is the actual
+cryptographic/security internals (from-scratch RSA/ECC, hashing+salting,
+2FA, RBAC decision logic, secure session tokens, MAC) - those are stubbed
+out with clearly marked `TODO(<name>):` comments and, where relevant, an
+insecure placeholder so the rest of the app keeps working while you build
+your piece. Grep your name to find everything assigned to you:
+
+    grep -rn "TODO(Afnan Satter)" .
+    grep -rn "TODO(Mos. Mahabuba Akter Munia)" .
+    grep -rn "TODO(Razeen Hassan)" .
+
+NOTE ON XSS: input sanitization / stored-XSS protection was considered and
+dropped from scope entirely (it was only ever in the team's own project
+proposal document, not in the official graded CSE447 project requirements
+document - confirmed by re-reading that document directly). Comments is just
+"comments" now, no sanitization sub-feature.
+
+================================================================================
+RAZEEN HASSAN -- Login, Registration, RBAC, Session management, ECC, Admin panel
+================================================================================
+Already working: the registration form/view, the login form/view, and
+session issuance + enforced timeout (ActiveSession + SecureSessionMiddleware)
+in accounts/.
+
+1. accounts/views.py -- register(), login_view(), logout_view(),
+   sessions_dashboard() (yours; verify_2fa() in the same file belongs to
+   Munia - see her section).
+
+2. accounts/security/session_manager.py
+   - Currently rides on Django's default signed session cookie -- swap for a
+     custom/from-scratch short-lived token scheme if the assignment requires
+     it (see the "Secure Session Management" requirement in the official
+     project requirements document).
+   - Add session-hijacking protections beyond what Django gives for free
+     (e.g. binding a session to the issuing IP/user-agent and rejecting
+     mismatches).
+   - Session Revocation & Emergency Controls (admin-triggered, wired into
+     moderation/views.py::user_management, not just the self-service "log
+     out all devices" button that already works) is yours too, since it's
+     still fundamentally session management.
+
+3. moderation/permissions.py -- the RBAC core: the actual role-based
+   permission matrix (which roles can do what), `admin_required` /
+   `has_permission`. Currently a placeholder (admin_required only checks
+   Django's is_staff flag / always grants). Other apps
+   (posts/permissions.py, social/views.py, moderation/views.py itself)
+   should call into this rather than re-implementing role checks inline.
+   accounts.models.Role / Profile.is_admin are the building blocks this
+   sits on top of.
+
+4. crypto_core/asymmetric/ecc_scratch.py -- ECC implemented from scratch:
+   keypair generation, encrypt, decrypt. One of the two required asymmetric
+   algorithms (Afnan has the other, RSA, in rsa_scratch.py in the same
+   folder) -- the assignment requires at least two different algorithms,
+   each used for a different part of the system. Register it with
+   crypto_core/encryption_service.py (Munia's facade) once done.
+
+5. moderation/views.py::dashboard() -- the Admin Security Dashboard shell
+   (total users, active sessions, flagged posts, recent events). NOTE: the
+   other views in this same file - audit_logs(), user_management(),
+   content_moderation() - are Munia's. Your dashboard links out to those
+   pages; coordinate with her on that.
+
+To find your current TODOs live in the code: grep -rn "TODO(Razeen Hassan)" .
+
+================================================================================
+AFNAN SATTER -- RSA, KMM, Post creation, Messaging, Password hashing+salting
+================================================================================
+Already working: nothing yet wired to real crypto -- registration currently
+uses Django's default password hasher as a placeholder until you replace it.
+
+1. accounts/security/hashing.py
+   - Implement a from-scratch password hashing + per-user salting scheme (no
+     PBKDF2/bcrypt/argon2/hashlib shortcuts allowed per the assignment).
+   - Replace the generate_salt / hash_password / verify_password
+     placeholders.
+   - Wire a custom django.contrib.auth.hashers.BasePasswordHasher subclass
+     into secureshare/settings.py's PASSWORD_HASHERS list (there's a TODO
+     there marking exactly where).
+   - accounts/views.py's register() view currently calls Django's
+     user.set_password() -- swap that for your from-scratch pipeline.
+
+2. crypto_core/asymmetric/rsa_scratch.py -- RSA implemented from scratch:
+   keypair generation, encrypt, decrypt. One of the two required asymmetric
+   algorithms (Razeen has the other, ECC, in ecc_scratch.py in the same
+   folder).
+
+3. crypto_core/key_management/kmm.py -- the Key Management Module: generate
+   / store / retrieve / rotate keys, backed by crypto_core/models.py's
+   KeyRecord model. Private key material must be protected at rest, never
+   stored raw. accounts.models.Profile has a public_key_reference field
+   already waiting for this.
+
+4. posts/ -- post creation: models.py, forms.py, views.py (feed/upload/
+   detail/edit), templates/. The core CRUD for photo posts is all yours.
+   NOTE: posts/permissions.py (visibility enforcement) and
+   posts/encryption.py (encrypting private/role-restricted posts) are
+   dedicated files inside this same app owned by Munia, precisely so
+   there's no overlap with your code - you own the plain create/view/edit
+   flow, she owns who-can-see-it and what's-encrypted.
+
+5. messaging/ -- encrypted 1-on-1 direct messages: models.py, views.py,
+   templates/. The Message model (sender, recipient, ciphertext, mac_tag,
+   created_at, is_read) and inbox/thread views are yours. The actual
+   encrypt/decrypt calls go through Munia's encryption_service facade
+   (crypto_core/encryption_service.py) - there's a TODO in
+   messaging/views.py marking exactly where to wire it in.
+
+To find your current TODOs live in the code: grep -rn "TODO(Afnan Satter)" .
+
+================================================================================
+MOS. MAHABUBA AKTER MUNIA -- everything else
+================================================================================
+Already working: nothing yet -- 2FA currently always succeeds (a
+placeholder), which is yours to replace.
+
+1. accounts/views.py::verify_2fa() -- yours (the rest of that file is
+   Razeen's).
+
+2. accounts/security/two_factor.py
+   - Implement real OTP generation/verification (TOTP per RFC 6238, or a
+     random email OTP with expiry) -- replaces the "always succeeds"
+     placeholder in generate_otp / verify_otp.
+   - Make sure OTP secrets are never stored in plaintext
+     (TwoFactorSettings.secret) -- use your own encryption_service facade
+     (below) for that.
+
+3. crypto_core/mac/hmac_scratch.py -- MAC (HMAC or CBC-MAC) implemented
+   from scratch, for data-integrity verification.
+
+4. crypto_core/encryption_service.py -- the facade other apps (accounts,
+   posts, messaging) call into, wrapping Afnan's RSA and Razeen's ECC plus
+   your MAC, so nobody else has to import the raw primitives directly.
+   accounts/models.py's Profile.encrypted_contact_info, accounts/views.py,
+   and accounts/forms.py already have TODOs pointing at this.
+
+5. posts/permissions.py -- enforce post visibility (Public / Private /
+   Role-Restricted) using Razeen's RBAC core (moderation/permissions.py).
+   Currently a placeholder that shows everything to everyone.
+
+6. posts/encryption.py -- encrypt/decrypt private and role-restricted post
+   images + captions before storage / on display, via your
+   encryption_service facade. posts/models.py already has the
+   encrypted_caption / encrypted_image_blob / mac_tag fields waiting.
+
+7. social/ -- likes and comments on posts: models.py, views.py. No
+   XSS/sanitization sub-feature -- see the note at the top of this file.
+   social/views.py::delete_comment() has a TODO to swap its naive
+   owner-or-staff check for Razeen's RBAC core once it exists.
+
+8. moderation/views.py -- three of the four views here are yours (Razeen
+   owns dashboard(), the shell his admin panel links out to):
+   - audit_logs() + moderation/logging_service.py -- searchable log viewer
+     (failed logins, 2FA failures, privilege escalation, key access,
+     content deletions) and the write path other apps call into.
+   - user_management() -- promote/demote roles, lock/suspend/ban accounts
+     (moderation/models.py's AccountState), trigger admin-side session
+     revocation (calls into Razeen's accounts/security/session_manager.py).
+   - content_moderation() -- review flagged posts/comments, delete
+     inappropriate content.
+
+================================================================================
+NOTES
+================================================================================
+- All from-scratch crypto requirements (RSA, ECC, password hashing, MAC) must
+  NOT use built-in framework or library implementations -- see the official
+  CSE447 project requirements document for the exact wording (shared
+  separately by the instructor, not part of this repo).
+- XSS/input-sanitization is NOT in the graded requirements document -- it
+  was only in the team's own project-ideas proposal, and has been dropped
+  from this plan. Don't spend time on it.
+- .env.example lists every environment variable the app reads; requirements.txt
+  pins every Python dependency (see README.md "System requirements" for
+  cross-platform setup instructions, and "Shared team database" for how to
+  point your .env at the central MySQL database everyone uses).
+- Run `python manage.py check` after any change to catch config/model errors
+  early.

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Messages - SecureShare{% endblock %}
+{% block content %}
+<h1>Messages</h1>
+<div class="card">
+    {% for partner in threads %}
+        <p><a href="{% url 'messaging:thread' partner.username %}">{{ partner.username }}</a></p>
+    {% empty %}
+        <p>No conversations yet.</p>
+    {% endfor %}
+</div>
+{% endblock %}

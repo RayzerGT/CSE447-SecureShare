@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Verify 2FA - SecureShare{% endblock %}
+{% block content %}
+<div class="card">
+    <h1>Two-factor verification</h1>
+    <p class="text-muted">
+        TODO(Mos. Mahabuba Akter Munia): this currently accepts any code - real OTP
+        verification lives in accounts/security/two_factor.py.
+    </p>
+    <form method="post" class="stacked-form">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Verify</button>
+    </form>
+</div>
+{% endblock %}

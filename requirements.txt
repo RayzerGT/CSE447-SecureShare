@@ -1,0 +1,17 @@
+# Exact versions this project was built and verified against (Python 3.13.3,
+# on Windows with XAMPP's bundled MariaDB 10.4.32 - see README.md "System
+# requirements" for what to check/adjust on a different machine).
+#
+# Django is capped at <5.1 because Django 5.1+ raises the minimum supported
+# MariaDB version to 10.5 - if your MySQL/MariaDB server is newer than that,
+# you can relax this pin (Django 5.1 or 5.2 will work fine).
+Django==5.0.14
+mysqlclient==2.2.8
+Pillow==11.3.0
+python-dotenv==1.2.3
+
+# Transitive dependencies, pinned for full reproducibility (pip would resolve
+# these automatically anyway, but pinning avoids any drift between machines).
+asgiref==3.12.1
+sqlparse==0.6.0
+tzdata==2026.3

@@ -1,0 +1,114 @@
+/* SecureShare base styles - minimal, shared across all teammates' templates */
+
+:root {
+    --color-bg: #fafafa;
+    --color-surface: #ffffff;
+    --color-border: #dbdbdb;
+    --color-text: #262626;
+    --color-muted: #737373;
+    --color-primary: #0095f6;
+    --color-danger: #ed4956;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text);
+}
+
+.container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 16px;
+}
+
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 24px;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.navbar .brand {
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: var(--color-text);
+    text-decoration: none;
+}
+
+.nav-links a, .nav-links .link-button {
+    margin-left: 16px;
+    text-decoration: none;
+    color: var(--color-text);
+    background: none;
+    border: none;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.nav-links .admin-link { color: var(--color-danger); font-weight: 600; }
+
+.inline-form { display: inline; }
+
+.card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.post-image { width: 100%; border-radius: 4px; margin-bottom: 8px; }
+
+form.stacked-form label { display: block; margin-top: 12px; font-weight: 600; }
+form.stacked-form input,
+form.stacked-form textarea,
+form.stacked-form select {
+    width: 100%;
+    padding: 8px;
+    margin-top: 4px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+}
+
+button, .btn {
+    display: inline-block;
+    margin-top: 16px;
+    padding: 8px 16px;
+    background: var(--color-primary);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+button.danger, .btn.danger { background: var(--color-danger); }
+
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    background: var(--color-border);
+}
+.badge.active, .badge.public { background: #d7f7dd; }
+.badge.expired, .badge.role_restricted { background: #fff3cd; }
+.badge.revoked, .badge.private { background: #ffe1e1; }
+
+.messages { list-style: none; padding: 0; }
+.messages .message { padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; background: #eee; }
+.messages .message.error { background: #ffe1e1; }
+.messages .message.success { background: #d7f7dd; }
+.messages .message.info { background: #fff3cd; }
+
+table { width: 100%; border-collapse: collapse; }
+table th, table td { text-align: left; padding: 8px; border-bottom: 1px solid var(--color-border); }
+
+.site-footer { text-align: center; color: var(--color-muted); padding: 24px; font-size: 0.85rem; }
+.text-muted { color: var(--color-muted); font-size: 0.85rem; }
