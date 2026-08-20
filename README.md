@@ -10,6 +10,11 @@ clearly marked `TODO(<name>):` stubs.
 **New here? Start with `SETUP.md`** — a short numbered checklist to get the
 app running on your machine. This file has the fuller reference/explanation.
 
+**Building any UI?** See `FRONTEND.md` — the whole site shares one dark
+retro-neon design system (shared CSS + component classes), and every new
+page must follow it. Copy `templates/_page_template.html` to start a new
+page rather than writing HTML from scratch.
+
 **See `todo.txt` in this same folder for exactly who is building what** —
 task ownership doesn't follow app boundaries exactly (e.g. `accounts/` is
 split between two people; `posts/` is split between two different people).
@@ -151,8 +156,10 @@ social/        Likes and comments
 moderation/    RBAC core, admin panel, audit log, user/role management,
                content moderation
 templates/, static/  shared UI shell (base.html, navbar, css, js)
+templates/_page_template.html  copy this to start any new page
 todo.txt       per-member task breakdown - the authoritative ownership doc
 SETUP.md       short numbered setup checklist (start here on a new machine)
+FRONTEND.md    the design system - read before building any UI
 ```
 
 `todo.txt` has the real detail (down to which function in which file); the

@@ -1,0 +1,61 @@
+{# ==========================================================================
+   STARTER TEMPLATE — copy this file when building a new page.
+   Rename it, drop it in your app's templates/<app>/ folder, and fill in the
+   blocks. Don't hand-roll your own <html>/<head>/navbar — base.html already
+   has all of that (fonts, background, navbar, flash messages, footer).
+   See FRONTEND.md in the project root for the full design system reference.
+   ========================================================================== #}
+{% extends "base.html" %}
+
+{% block title %}Page Name - SecureShare{% endblock %}
+
+{% block content %}
+<h1>Page Heading</h1>
+
+{# A .card is the standard content block - most of a page's body should live
+   inside one or more of these, not directly in <main>. #}
+<div class="card">
+    <h2>Section heading</h2>
+    <p>Body copy goes here. Use <code>.text-muted</code> for secondary/help text.</p>
+    <p class="text-muted">Like this line.</p>
+
+    {# Status/state labels use .badge with a modifier class. Reuse an
+       existing modifier where the meaning matches (active/expired/revoked,
+       public/private/role_restricted) rather than inventing new colors. #}
+    <span class="badge active">Active</span>
+    <span class="badge expired">Expired</span>
+    <span class="badge revoked">Revoked</span>
+
+    {# Primary action -> plain button/.btn (neon gradient). Destructive
+       action -> add .danger. data-confirm shows a confirm() dialog first
+       (handled by static/js/base.js already, no extra JS needed). #}
+    <a href="#" class="btn">Primary action</a>
+    <button type="button" class="danger" data-confirm="Are you sure?">Destructive action</button>
+</div>
+
+{# Forms: wrap in <form class="stacked-form">. Inputs/labels are styled
+   automatically - don't add your own classes to individual fields. #}
+<div class="card">
+    <h2>A form</h2>
+    <form method="post" class="stacked-form">
+        {% csrf_token %}
+        <label for="example">Field label</label>
+        <input type="text" id="example" name="example">
+        <button type="submit">Submit</button>
+    </form>
+</div>
+
+{# Tables: plain <table> is already styled (neon header row, hover states).
+   No extra classes needed. #}
+<div class="card">
+    <h2>A table</h2>
+    <table>
+        <thead>
+            <tr><th>Column A</th><th>Column B</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Value</td><td>Value</td></tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
