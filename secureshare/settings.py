@@ -52,8 +52,14 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 
     # Enforces the SESSION_TIMEOUT_MINUTES absolute session expiry on every
-    # authenticated request (accounts/security/session_manager.py).
+    # authenticated request (accounts/security/session_manager.py). Must run
+    # BEFORE RoleAccessMiddleware below, so an expired session is logged out
+    # (request.user -> AnonymousUser) before role-based redirect logic sees it.
     "accounts.security.session_manager.SecureSessionMiddleware",
+
+    # Confines Admin/Developer accounts to their own panel only - no feed/
+    # upload/messaging/social for them (moderation/permissions.py).
+    "moderation.permissions.RoleAccessMiddleware",
 ]
 
 ROOT_URLCONF = "secureshare.urls"

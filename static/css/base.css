@@ -130,6 +130,13 @@ a:hover { text-shadow: var(--glow-cyan); }
     position: relative;
 }
 
+/* Wide variant for table/data-heavy pages (e.g. the developer panel's raw
+   DB viewer). Set via {% block container_class %}wide{% endblock %} in a
+   page template - see FRONTEND.md. */
+.container.wide {
+    max-width: 1200px;
+}
+
 /* --- navbar --- */
 .navbar {
     display: flex;
@@ -198,6 +205,21 @@ a:hover { text-shadow: var(--glow-cyan); }
     border-radius: 6px;
     margin-bottom: 10px;
     border: 1px solid var(--border-soft);
+}
+
+/* "Restricted area" card variant - use for admin/developer-only entry
+   points (e.g. the portal login) to visually signal this isn't a normal
+   page, without introducing a whole separate page shell. */
+.card.restricted {
+    border-color: rgba(255, 67, 101, 0.5);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02) inset, 0 0 30px rgba(255, 67, 101, 0.2);
+}
+.card.restricted h1 {
+    background: linear-gradient(90deg, var(--neon-red), var(--neon-purple));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 12px rgba(255, 67, 101, 0.4));
 }
 
 /* --- forms --- */

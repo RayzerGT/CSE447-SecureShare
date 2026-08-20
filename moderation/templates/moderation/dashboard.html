@@ -11,8 +11,11 @@
 <div class="card">
     <h2>System health</h2>
     <p>Total registered users: <strong>{{ total_users }}</strong></p>
+    <p>Banned users: <strong>{{ banned_users }}</strong></p>
+    <p>Suspended users: <strong>{{ suspended_users }}</strong></p>
     <p>Active sessions: <strong>{{ active_sessions }}</strong></p>
     <p>Flagged posts pending review: <strong>{{ flagged_posts }}</strong></p>
+    <p>Pending reports: <strong>{{ pending_reports }}</strong></p>
 </div>
 
 <div class="card">
@@ -35,7 +38,8 @@
 </div>
 
 <div class="card">
-    <a href="{% url 'moderation:user_management' %}" class="btn">User &amp; role management</a>
+    <a href="{% url 'moderation:user_management' %}" class="btn">User management</a>
     <a href="{% url 'moderation:content_moderation' %}" class="btn">Content moderation</a>
+    <a href="{% url 'moderation:reports_list' %}" class="btn">Reports ({{ pending_reports }})</a>
 </div>
 {% endblock %}

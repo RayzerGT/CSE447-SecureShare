@@ -11,6 +11,7 @@ urlpatterns = [
     path("messages/", include("messaging.urls")),
     path("social/", include("social.urls")),
     path("moderation/", include("moderation.urls")),
+    path("portal/", include("moderation.portal_urls")),  # admin & developer login portal
 ]
 
 if settings.DEBUG:

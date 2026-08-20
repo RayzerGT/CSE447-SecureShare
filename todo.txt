@@ -30,6 +30,24 @@ proposal document, not in the official graded CSE447 project requirements
 document - confirmed by re-reading that document directly). Comments is just
 "comments" now, no sanitization sub-feature.
 
+HIERARCHY: Developer > Admin > User - but this is NOT "higher role can do
+what lower roles can" access. Each role is walled off to ONLY its own area:
+    - User: the social site (feed/upload/messaging/social/comments/likes).
+      No access to /moderation/ or /portal/.
+    - Admin: /moderation/ ONLY - no feed/upload/messaging, no /portal/.
+      Manages Standard User accounts only (lock/suspend/ban) - cannot touch
+      other Admin or Developer accounts, and cannot create new admins.
+    - Developer: /portal/ ONLY - no feed/upload/messaging, no /moderation/.
+      Two separate menus: manage_admins (grant/revoke the Admin role) and
+      manage_users (lock/suspend/ban Standard User accounts, same power
+      admins have over users). Developer accounts themselves aren't managed
+      through either menu.
+Enforced by moderation/permissions.py::RoleAccessMiddleware (redirects
+anyone whose role isn't User away from anything outside their own area)
+plus queryset scoping in each management view (so even a hand-crafted
+request against the right URL 404s if the target account is the wrong
+role) - see Razeen's and Munia's sections below for the specific files.
+
 ================================================================================
 RAZEEN HASSAN -- Login, Registration, RBAC, Session management, ECC, Admin panel
 ================================================================================
@@ -56,12 +74,29 @@ in accounts/.
 
 3. moderation/permissions.py -- the RBAC core: the actual role-based
    permission matrix (which roles can do what), `admin_required` /
-   `has_permission`. Currently a placeholder (admin_required only checks
-   Django's is_staff flag / always grants). Other apps
+   `developer_required` / `has_permission` / `RoleAccessMiddleware`.
+   Currently placeholders (admin_required checks is_staff,
+   developer_required checks is_superuser, has_permission always grants,
+   RoleAccessMiddleware's prefix-list approach should probably be driven
+   by the real permission matrix too once it exists). Other apps
    (posts/permissions.py, social/views.py, moderation/views.py itself)
    should call into this rather than re-implementing role checks inline.
-   accounts.models.Role / Profile.is_admin are the building blocks this
-   sits on top of.
+   accounts.models.Role (USER/ADMIN/DEVELOPER) / Profile.is_admin /
+   Profile.is_developer are the building blocks this sits on top of -
+   DEVELOPER is a separate privilege tier from ADMIN, not a superset (see
+   the HIERARCHY note above, and the KNOWN LIMITATION TODO on Role itself:
+   Profile.role is a single field right now, so one account can't actually
+   hold both Admin and Developer simultaneously despite that being the
+   original intent).
+
+3b. moderation/portal_views.py::portal_login() -- a separate login endpoint
+   (/portal/login/, template moderation/templates/moderation/portal_login.html)
+   for admins and developers, distinct from the regular /accounts/login/.
+   Same credentials, but routes to moderation:dashboard (admin) or
+   portal:developer_dashboard (developer) instead of the normal feed, and
+   rejects anyone who isn't one of those two roles. Currently skips the 2FA
+   step regular login goes through - decide whether it should be mandatory
+   here (coordinate with Munia on accounts/security/two_factor.py).
 
 4. crypto_core/asymmetric/ecc_scratch.py -- ECC implemented from scratch:
    keypair generation, encrypt, decrypt. One of the two required asymmetric
@@ -71,10 +106,11 @@ in accounts/.
    crypto_core/encryption_service.py (Munia's facade) once done.
 
 5. moderation/views.py::dashboard() -- the Admin Security Dashboard shell
-   (total users, active sessions, flagged posts, recent events). NOTE: the
-   other views in this same file - audit_logs(), user_management(),
-   content_moderation() - are Munia's. Your dashboard links out to those
-   pages; coordinate with her on that.
+   (total/banned/suspended users, active sessions, flagged posts, pending
+   reports, recent events). NOTE: the other views in this same file -
+   audit_logs(), user_management(), content_moderation(), submit_report(),
+   reports_list() - are Munia's. Your dashboard links out to those pages;
+   coordinate with her on that.
 
 To find your current TODOs live in the code: grep -rn "TODO(Razeen Hassan)" .
 
@@ -163,16 +199,52 @@ placeholder), which is yours to replace.
    social/views.py::delete_comment() has a TODO to swap its naive
    owner-or-staff check for Razeen's RBAC core once it exists.
 
-8. moderation/views.py -- three of the four views here are yours (Razeen
-   owns dashboard(), the shell his admin panel links out to):
+8. moderation/views.py -- all but dashboard() here are yours (Razeen owns
+   dashboard(), the shell his admin panel links out to):
    - audit_logs() + moderation/logging_service.py -- searchable log viewer
      (failed logins, 2FA failures, privilege escalation, key access,
      content deletions) and the write path other apps call into.
-   - user_management() -- promote/demote roles, lock/suspend/ban accounts
+   - user_management() -- lock/suspend/ban Standard User accounts only
      (moderation/models.py's AccountState), trigger admin-side session
      revocation (calls into Razeen's accounts/security/session_manager.py).
+     NO promote/demote here anymore - creating/removing admins is a
+     Developer-only power now (see manage_admins() below). Both the list
+     and the POST target are scoped to Role.USER so an admin literally
+     cannot act on another Admin or a Developer account, even by hand-
+     crafting a request (get_object_or_404 with profile__role=Role.USER).
    - content_moderation() -- review flagged posts/comments, delete
      inappropriate content.
+   - submit_report() / reports_list() -- regular users report a post
+     (button on posts/detail.html, Afnan's template) via
+     moderation/models.py's new Report model; you review pending reports
+     and delete-the-post-or-dismiss. This is the "menu that lets admins
+     check reports made by regular users" requirement.
+
+9. moderation/portal_views.py::developer_dashboard() -- the raw database
+   viewer at /portal/developer/ (gated by Razeen's developer_required, a
+   SEPARATE role from admin - see his section). Shows literal auth_user +
+   accounts_profile column values (username, email, password hash, role,
+   raw contact info, public key ref) - this is the "demonstrate to faculty
+   that encryption/hashing actually works" page. Once your hashing (Afnan's,
+   actually - see his section) and your encryption_service are implemented
+   for real, this page's output IS the demo: it should show hash strings
+   and ciphertext, not plaintext. Extend it to cover other
+   encrypted-at-rest tables (crypto_core.KeyRecord, messaging.Message,
+   private posts' encrypted fields) as those get built. Wide layout
+   (container_class=wide, see FRONTEND.md) since the table is column-heavy.
+
+10. moderation/portal_views.py::manage_admins() / manage_users() -- the
+    Developer panel's two menus (linked from developer_dashboard.html):
+    - manage_admins(): grant/revoke the Admin role (Standard User <-> Admin
+      only - Developer accounts aren't touched here). This is now the ONLY
+      place the Admin role can change hands.
+    - manage_users(): same lock/suspend/ban/reactivate/revoke_sessions
+      power as admin's user_management() (shares its account-status logic
+      via apply_account_status_action() in moderation/views.py), just
+      reachable from the developer panel instead of the admin one, per the
+      "two separate menus" requirement.
+    Both wide layout, both scoped with get_object_or_404(..., profile__role=...)
+    the same way user_management() is.
 
 ================================================================================
 NOTES

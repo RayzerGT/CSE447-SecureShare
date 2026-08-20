@@ -53,10 +53,19 @@ don't add another font import.
 
 **Cards** — `<div class="card">...</div>`. The standard content container:
 dark gradient surface, soft neon border, drop shadow. Nest headings/forms/
-tables/buttons inside.
+tables/buttons inside. Add `.restricted` (`<div class="card restricted">`)
+for admin/developer-only entry points (e.g. the portal login) — red/purple
+glow instead of the standard pink/cyan, signals "not a normal page" without
+a whole separate page shell.
 
 **Headings** — plain `<h1>`/`<h2>` are already styled (gradient-filled `<h1>`,
 glowing cyan `<h2>`). Don't add classes to them.
+
+**Wide layout** — the page container is capped at 760px by default (good for
+forms/reading). For table/data-heavy pages (the developer panel's raw DB
+viewer, admin tables with lots of columns), widen it by overriding the
+`container_class` block: `{% block container_class %}wide{% endblock %}`
+caps it at 1200px instead. Don't hardcode a width in page CSS.
 
 **Buttons** — plain `<button>` or `<a class="btn">` get the pink→purple
 gradient automatically. Add `.danger` for destructive actions (delete, ban,

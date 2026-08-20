@@ -1,11 +1,13 @@
 """
 moderation/models.py
-Assigned to: Mos. Mahabuba Akter Munia (backs her audit log viewer and user
-& role management pages - see todo.txt)
+Assigned to: Mos. Mahabuba Akter Munia (backs her audit log viewer, user
+& role management, and reports pages - see todo.txt)
 """
 
 from django.conf import settings
 from django.db import models
+
+from posts.models import Post
 
 
 class AuditLog(models.Model):
@@ -56,3 +58,30 @@ class AccountState(models.Model):
 
     def __str__(self):
         return f"AccountState({self.user.username}: {self.status})"
+
+
+class Report(models.Model):
+    """
+    A regular user's report of a post, reviewed via the admin panel's
+    "Reports" menu (moderation/views.py::reports_list). Submitting a report
+    also flags the post (Post.is_flagged) so it shows up in the existing
+    Global Content Moderation view too.
+    """
+
+    reporter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reports_filed")
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="reports")
+    reason = models.TextField(blank=True)
+
+    is_resolved = models.BooleanField(default=False)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    resolved_at = models.DateTimeField(blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Report(post={self.post_id}, by={self.reporter.username}, resolved={self.is_resolved})"

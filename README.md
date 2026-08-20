@@ -53,6 +53,66 @@ expiring on its own.
 The account security dashboard (`/accounts/sessions/`) lists each session's
 expiry time and live status (Active / Expired / Revoked).
 
+## RBAC: admin & developer portal
+
+Three roles (`accounts.models.Role`): Standard User, Admin, and Developer -
+hierarchy Developer > Admin > User, but **not** in the sense of "higher
+role can do everything a lower role can." Each role is walled off to
+*only* its own area:
+
+- **Standard User** — the social site (feed/upload/messaging/social). No
+  access to `/moderation/` or `/portal/`.
+- **Admin** — `/moderation/` only. No feed/upload/messaging, no `/portal/`.
+  Can lock/suspend/ban **Standard User accounts only** — cannot touch
+  other Admin or Developer accounts, and cannot create new admins.
+- **Developer** — `/portal/` only. No feed/upload/messaging, no
+  `/moderation/`. Two separate menus: grant/revoke the Admin role, and
+  separately lock/suspend/ban Standard User accounts (the same power
+  Admins have over users) — kept apart from each other.
+
+This is enforced twice over: `moderation.permissions.RoleAccessMiddleware`
+redirects Admin/Developer accounts away from anything outside their own
+area (so it's not just hidden nav links — the routes themselves are
+blocked), and every management view scopes its queryset/target lookup by
+role, so even a hand-crafted POST against the right URL gets a 404 if the
+target account is the wrong role. Both were verified live, not just
+written: an Admin session was confirmed blocked from the feed, upload,
+messaging, *and* the developer portal; a Developer session was confirmed
+blocked from the feed/upload/messaging and the admin panel; and a crafted
+request to ban an Admin account through the Admin's own user-management
+endpoint was confirmed to 404 rather than silently succeed.
+
+Admin and Developer are meant to be separate privilege tiers, neither
+implying the other — **but right now `Profile.role` is a single field, so
+one account can only hold one role at a time.** Promoting someone to Admin
+overwrites an existing Developer designation and vice versa. See the
+`KNOWN LIMITATION` TODO on `accounts.models.Role` if the team needs one
+person to genuinely hold both.
+
+- **`/portal/login/`** — a separate login page for Admins and Developers,
+  distinct from the regular `/accounts/login/` everyone else uses. Same
+  credentials (there's only one User table), but on success it checks role
+  and routes accordingly instead of sending you to the normal feed.
+- **Admins** land on `/moderation/` — dashboard (total/banned/suspended
+  user counts, active sessions, pending reports), user management
+  (lock/suspend/ban Standard Users only), content moderation, and a
+  **Reports** menu showing posts regular users have flagged
+  (`/moderation/reports/`) with delete-post / dismiss actions.
+- **Developers** land on `/portal/developer/` — a raw database viewer
+  (literal `auth_user`/`accounts_profile` column values: username, email,
+  password hash, role, raw contact info) in a wider layout than the rest
+  of the site (better for dense tables — see FRONTEND.md's `wide`
+  container variant). This exists specifically to demonstrate to faculty
+  that the hashing/encryption requirements are actually in effect — once
+  those are implemented for real, this page's output *is* the proof (hash
+  strings and ciphertext instead of plaintext). Two menus from here:
+  `/portal/admins/` (grant/revoke the Admin role — the only place that can
+  happen) and `/portal/users/` (lock/suspend/ban Standard Users).
+
+Regular users can report a post from its detail page; that both flags it
+for the existing content-moderation view and creates a `Report` row admins
+can act on.
+
 ## Shared team database
 
 **Live and confirmed working:** a central MySQL 8.4 database is hosted on

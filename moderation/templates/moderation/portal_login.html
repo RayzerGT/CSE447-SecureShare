@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Admin & Developer Portal - SecureShare{% endblock %}
+{% block content %}
+<div class="card restricted">
+    <h1>Restricted Access</h1>
+    <p class="text-muted">
+        Admin &amp; Developer Portal. Same account/password as your regular
+        login - access here depends on your account's role.
+    </p>
+    <p class="text-muted">
+        TODO(Razeen Hassan): this skips the 2FA step regular login goes
+        through - decide whether 2FA should be mandatory for this portal.
+    </p>
+    <form method="post" class="stacked-form">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="danger">Enter portal</button>
+    </form>
+</div>
+{% endblock %}

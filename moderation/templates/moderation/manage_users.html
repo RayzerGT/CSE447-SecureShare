@@ -1,12 +1,9 @@
 {% extends "base.html" %}
-{% block title %}User Management - SecureShare{% endblock %}
+{% block title %}Manage Users - SecureShare{% endblock %}
+{% block container_class %}wide{% endblock %}
 {% block content %}
-<h1>User management</h1>
-<p class="text-muted">
-    Standard User accounts only - admins can lock/suspend/ban users, but
-    can't touch other Admin or Developer accounts, and can't create new
-    admins (that's a Developer-only power).
-</p>
+<h1>Manage users</h1>
+<p class="text-muted">Standard User accounts - lock, suspend, ban, or revoke sessions.</p>
 <div class="card">
     <table>
         <thead>

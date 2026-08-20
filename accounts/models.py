@@ -18,10 +18,30 @@ from django.db import models
 
 
 class Role(models.TextChoices):
-    """RBAC roles. Enforcement logic lives in moderation/permissions.py (Razeen Hassan)."""
+    """
+    RBAC roles. Enforcement logic lives in moderation/permissions.py (Razeen Hassan).
+
+    DEVELOPER is a separate privileged tier from ADMIN - it's for the raw
+    database viewer (moderation/portal_views.py::developer_dashboard) used to
+    demonstrate the encryption/hashing implementation to faculty, not for
+    day-to-day moderation. A developer is not automatically an admin and
+    vice versa.
+
+    KNOWN LIMITATION - TODO(Razeen Hassan): Profile.role below is a single
+    field, so it can only hold ONE of these at a time. Promoting someone to
+    ADMIN (moderation/views.py::user_management) will silently overwrite an
+    existing DEVELOPER designation, and vice versa - there's currently no
+    way for one account to genuinely hold both roles at once, despite that
+    being the intent. If the team needs a person to be both, replace this
+    single CharField with either two independent boolean flags or a
+    many-to-many "roles" relation, and update admin_required/
+    developer_required in moderation/permissions.py (which currently read
+    Profile.role directly) accordingly.
+    """
 
     USER = "user", "Standard User"
     ADMIN = "admin", "Admin"
+    DEVELOPER = "developer", "Developer"
 
 
 class Profile(models.Model):
@@ -54,6 +74,10 @@ class Profile(models.Model):
     @property
     def is_admin(self):
         return self.role == Role.ADMIN
+
+    @property
+    def is_developer(self):
+        return self.role == Role.DEVELOPER
 
 
 class TwoFactorSettings(models.Model):

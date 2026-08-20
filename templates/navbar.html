@@ -1,14 +1,23 @@
+{% comment %}
+Role-aware nav (ties into moderation/permissions.py's RoleAccessMiddleware -
+Razeen). Admin/Developer accounts only ever see their own panel link here,
+never Feed/Upload/Messages/Security/Profile - those pages are also
+server-side blocked for them, this just keeps the UI consistent with that.
+{% endcomment %}
 <nav class="navbar">
-    <a href="{% url 'posts:feed' %}" class="brand">SecureShare</a>
+    <a href="{% if user.is_authenticated and user.profile.is_admin %}{% url 'moderation:dashboard' %}{% elif user.is_authenticated and user.profile.is_developer %}{% url 'portal:developer_dashboard' %}{% elif user.is_authenticated %}{% url 'posts:feed' %}{% else %}{% url 'accounts:login' %}{% endif %}" class="brand">SecureShare</a>
     <div class="nav-links">
         {% if user.is_authenticated %}
-            <a href="{% url 'posts:feed' %}">Feed</a>
-            <a href="{% url 'posts:upload' %}">Upload</a>
-            <a href="{% url 'messaging:inbox' %}">Messages</a>
-            <a href="{% url 'accounts:sessions' %}">Security</a>
-            <a href="{% url 'accounts:profile' %}">{{ user.username }}</a>
-            {% if user.is_staff or user.profile.is_admin %}
+            {% if user.profile.is_admin %}
                 <a href="{% url 'moderation:dashboard' %}" class="admin-link">Admin Panel</a>
+            {% elif user.profile.is_developer %}
+                <a href="{% url 'portal:developer_dashboard' %}" class="admin-link">Developer Panel</a>
+            {% else %}
+                <a href="{% url 'posts:feed' %}">Feed</a>
+                <a href="{% url 'posts:upload' %}">Upload</a>
+                <a href="{% url 'messaging:inbox' %}">Messages</a>
+                <a href="{% url 'accounts:sessions' %}">Security</a>
+                <a href="{% url 'accounts:profile' %}">{{ user.username }}</a>
             {% endif %}
             <form action="{% url 'accounts:logout' %}" method="post" class="inline-form">
                 {% csrf_token %}
