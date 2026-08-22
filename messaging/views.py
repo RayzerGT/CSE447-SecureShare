@@ -2,9 +2,9 @@
 messaging/views.py
 Assigned to: Afnan Satter (see todo.txt)
 
-TODO: wire crypto_core.encryption_service.EncryptionService.encrypt_message /
-decrypt_message (Mos. Mahabuba Akter Munia's facade) + MAC verify in
-send_message / thread below.
+TODO(Afnan Satter): wire crypto_core.encryption_service.EncryptionService.
+encrypt_message / decrypt_message (Mos. Mahabuba Akter Munia's facade) +
+MAC verify in send_message / thread below.
 """
 
 from django.contrib.auth.decorators import login_required

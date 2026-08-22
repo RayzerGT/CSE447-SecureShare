@@ -5,7 +5,8 @@ User onboarding & authentication, 2FA verification step, profile view/edit,
 and the user security/account dashboard (active sessions + logout-everywhere).
 
 This file is split across two teammates - see todo.txt for the full picture:
-    - register(), login_view(), logout_view(), sessions_dashboard() -> Razeen Hassan
+    - register(), login_view(), logout_view(), sessions_dashboard(),
+      profile_view(), profile_edit()                                -> Razeen Hassan
     - verify_2fa()                                                  -> Mos. Mahabuba Akter Munia
 
 Wiring points - see todo.txt for who owns what:

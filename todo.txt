@@ -56,8 +56,8 @@ session issuance + enforced timeout (ActiveSession + SecureSessionMiddleware)
 in accounts/.
 
 1. accounts/views.py -- register(), login_view(), logout_view(),
-   sessions_dashboard() (yours; verify_2fa() in the same file belongs to
-   Munia - see her section).
+   sessions_dashboard(), profile_view(), profile_edit() (yours; verify_2fa()
+   in the same file belongs to Munia - see her section).
 
 2. accounts/security/session_manager.py
    - Currently rides on Django's default signed session cookie -- swap for a

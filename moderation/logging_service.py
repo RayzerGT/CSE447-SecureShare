@@ -11,8 +11,10 @@ TODO(Mos. Mahabuba Akter Munia):
     - Capture real client IP (request.META handling, proxy-aware).
     - Call this from accounts/views.py (login/logout/2FA events), posts/views.py
       (post create/delete, Afnan's), social/views.py (comment delete, yours),
-      and this app's own admin actions (role changes, account state changes,
-      session revocation - Razeen's admin panel / your admin sub-pages).
+      and this app's own admin/developer actions (account state changes via
+      user_management()/manage_users(), admin-role grants via
+      manage_admins(), session revocation - all yours; Razeen only owns the
+      dashboard() shell and portal_login()).
 """
 
 from .models import AuditLog

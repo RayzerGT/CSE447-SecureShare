@@ -2,14 +2,15 @@
 moderation/views.py
 Split ownership - see todo.txt:
     - dashboard()                                                          -> Razeen Hassan (admin panel shell)
-    - audit_logs(), user_management(), content_moderation(),
-      submit_report(), reports_list()                                     -> Mos. Mahabuba Akter Munia
+    - apply_account_status_action(), audit_logs(), user_management(),
+      content_moderation(), submit_report(), reports_list()               -> Mos. Mahabuba Akter Munia
 
 TODO(Razeen Hassan): replace @admin_required (currently is_staff-based) with
 the finished RBAC core once moderation/permissions.py is implemented for real.
 
-Portal login + the developer raw-DB viewer live in portal_views.py, not
-here - see that file and todo.txt.
+Portal login (Razeen), the developer raw-DB viewer, and the manage_admins()/
+manage_users() developer-panel menus (Munia) all live in portal_views.py,
+not here - see that file and todo.txt.
 """
 
 from django.contrib.auth import get_user_model

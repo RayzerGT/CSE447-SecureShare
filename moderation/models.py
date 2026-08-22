@@ -1,7 +1,9 @@
 """
 moderation/models.py
 Assigned to: Mos. Mahabuba Akter Munia (backs her audit log viewer, user
-& role management, and reports pages - see todo.txt)
+management, admin-role management, and reports pages - across both the
+admin panel's user_management() and the developer panel's manage_admins()/
+manage_users() in portal_views.py - see todo.txt)
 """
 
 from django.conf import settings
