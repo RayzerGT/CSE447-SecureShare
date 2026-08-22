@@ -1,0 +1,28 @@
+{% comment %}
+Left pane of the two-pane DM layout, shared by inbox.html and thread.html.
+Expects `threads` (see messaging/views.py::_conversation_list) and an
+optional `active_username` to highlight the open conversation.
+{% endcomment %}
+<div class="dm__list">
+    <div class="dm__list-head">{{ user.username }}</div>
+
+    {% for thread in threads %}
+    <a href="{% url 'messaging:thread' thread.partner.username %}"
+       class="user-row {% if thread.partner.username == active_username %}is-active{% endif %}">
+        {% include "_avatar.html" with u=thread.partner size="lg" %}
+        <div class="user-row__body">
+            <div class="user-row__name">{{ thread.partner.username }}</div>
+            <div class="user-row__sub">
+                {% if thread.last.sender_id == user.id %}You: {% endif %}
+                {% if thread.last.plaintext_body %}{{ thread.last.plaintext_body }}{% else %}Sent a photo{% endif %}
+                &middot; {{ thread.last.created_at|timesince }}
+            </div>
+        </div>
+    </a>
+    {% empty %}
+    <div class="empty-state">
+        <p>No conversations yet.</p>
+        <a href="{% url 'social:friends_list' %}" class="btn" style="margin-top:12px">Message a friend</a>
+    </div>
+    {% endfor %}
+</div>

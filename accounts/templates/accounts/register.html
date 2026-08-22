@@ -1,17 +1,29 @@
 {% extends "base.html" %}
-{% block title %}Register - SecureShare{% endblock %}
+{% block title %}Sign up - SecureShare{% endblock %}
+{% block chrome %}{% endblock %}
+{% block main_class %}app-main--auth{% endblock %}
+
 {% block content %}
-<div class="card">
-    <h1>Create your account</h1>
-    <p class="text-muted">
-        User info is intended to be encrypted at rest and passwords hashed+salted
-        from scratch (Afnan Satter / Mos. Mahabuba Akter Munia) - not yet wired in this skeleton.
-    </p>
-    <form method="post" class="stacked-form">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Register</button>
-    </form>
-    <p class="text-muted">Already have an account? <a href="{% url 'accounts:login' %}">Log in</a></p>
+<div class="auth-shell">
+    <div class="auth-card">
+        <div class="auth-card__wordmark">SecureShare</div>
+        <p class="text-muted">Sign up to share photos with your friends.</p>
+
+        <form method="post" class="stacked-form">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="block">Sign up</button>
+        </form>
+
+        <p class="dev-note" style="margin-top:18px;text-align:left">
+            User info is intended to be encrypted at rest and passwords hashed+salted
+            from scratch (Afnan Satter / Mos. Mahabuba Akter Munia) - not yet wired
+            in this skeleton.
+        </p>
+    </div>
+
+    <div class="auth-alt">
+        Have an account? <a href="{% url 'accounts:login' %}">Log in</a>
+    </div>
 </div>
 {% endblock %}

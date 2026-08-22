@@ -1,99 +1,142 @@
-# Frontend guide — Retro Neon design system
+# Frontend guide — SecureShare design system
 
-Every page shares one look: dark synthwave background, neon cyan/pink/purple
-accents, gradient headings, glowing cards. This isn't optional per-page
-styling — **all of it lives in `static/css/base.css` and `templates/base.html`,
-shared by every app.** New pages should reuse the existing classes, not
-invent new colors or components.
+The whole UI shares one stylesheet and one page shell: **`static/css/base.css`
+and `templates/base.html`.** New pages reuse the existing classes — they don't
+invent new colors, fonts, or components.
 
-**Copy `templates/_page_template.html` when starting a new page** — it
-demonstrates every component below with comments. Don't build a page from
-scratch.
+There are **two skins**, both defined in that one stylesheet:
+
+| Skin | Who sees it | Look |
+|---|---|---|
+| **Social** (default) | Standard Users | Instagram-inspired: white/near-black surfaces, blue primary buttons, brand-gradient avatar rings, script wordmark |
+| **Console** (`<body class="console">`) | Admins & Developers | Dark slate dashboard: KPI tiles, dense tables, no gradients |
+
+`base.html` adds the `console` class automatically based on the signed-in
+user's role, so **you never set it yourself.** The split is deliberate: a
+privileged panel should never look like the social site. It's cosmetic only —
+the real wall is `moderation/permissions.py::RoleAccessMiddleware`.
+
+**Copy `templates/_page_template.html` when starting a new page.** It
+demonstrates every component below with comments.
 
 ## Rules
 
-1. Every page template starts with `{% extends "base.html" %}`. Never write
-   your own `<html>`/`<head>`/navbar/footer — `base.html` already has fonts,
-   the background effects, the navbar, flash messages, and the footer.
-2. Put page body content inside one or more `<div class="card">` blocks, not
-   loose in `{% block content %}`.
-3. Don't hardcode colors (`color: #ff00ff`) in a template's inline styles or
-   a new CSS file. Use the CSS custom properties from `base.css` (e.g.
-   `var(--neon-pink)`) if you need something the existing component classes
-   don't cover — and check whether an existing class already does what you
-   want before adding new CSS at all.
-4. Reuse badge/button/table/form classes (below) instead of writing new
-   ones. If you genuinely need a new component, add it to `base.css` as a
-   shared class (`.your-component`), not as one-off inline styles, so
-   everyone else can reuse it too.
+1. Every page starts with `{% extends "base.html" %}`. Never write your own
+   `<html>`/`<head>`/nav — `base.html` has the fonts, shell, role-aware
+   navigation and flash messages.
+2. Don't hardcode colors (`color: #ff00ff`) in templates or new CSS files. Use
+   the tokens below (e.g. `var(--blue)`). Both skins are just different token
+   values, so a page built on tokens works in either one for free.
+3. Reuse the component classes below. If you genuinely need a new component,
+   add it to `base.css` as a shared class, not as one-off inline styles.
+4. Never pass a template context variable named **`messages`** — that name
+   belongs to Django's flash-message framework, and using it makes your data
+   render as flash banners. (`messaging/views.py` uses `thread_messages`.)
 
-## Design tokens (`static/css/base.css` `:root`)
+## Layout
 
-| Token | Value | Use for |
+`base.html` renders a fixed left rail plus a content column:
+
+```
+{% block container_class %}{% endblock %}   → max-width 935px (default)
+{% block container_class %}narrow{% endblock %}  → 470px  (feed, lists, forms)
+{% block container_class %}wide{% endblock %}    → 1200px (tables, DM, dashboards)
+```
+
+The rail is responsive on its own — full labels ≥1264px, icon-only 768–1263px,
+and a bottom tab bar below 768px. You don't need to do anything for that.
+
+**Signed-out pages** (login, register, 2FA, portal login) hide the rail and
+center a card:
+
+```django
+{% block chrome %}{% endblock %}
+{% block main_class %}app-main--auth{% endblock %}
+```
+
+## Design tokens (`base.css` `:root`)
+
+| Token | Social value | Use for |
 |---|---|---|
-| `--bg-void` | `#0a0118` | page background |
-| `--bg-surface` / `--bg-surface-alt` | `#150a2e` / `#1e0f3d` | card backgrounds |
-| `--bg-input` | `#0f0722` | form field backgrounds |
-| `--neon-cyan` | `#05f2f2` | links, headings, "active"/success accents |
-| `--neon-pink` | `#ff2e97` | brand, primary gradient |
-| `--neon-purple` | `#a239ff` | secondary gradient, borders |
-| `--neon-yellow` | `#ffe45e` | warnings, "expired" states |
-| `--neon-red` | `#ff4365` | danger, "revoked" states |
-| `--neon-green` | `#39ff9d` | "active"/success states |
-| `--text-primary` / `--text-muted` / `--text-dim` | off-white / lavender-grey / dim purple-grey | body text / secondary text / faint text |
-| `--gradient-brand` | cyan → pink | logo, `<h1>` text |
-| `--gradient-button` | pink → purple | primary buttons |
-| `--font-display` | Orbitron | headings, buttons, badges, nav — uppercase, geometric |
-| `--font-body` | Rajdhani | body copy, form labels/inputs |
+| `--bg` | `#fafafa` | page background |
+| `--surface` | `#ffffff` | cards, posts, rail |
+| `--surface-alt` / `--surface-hover` | `#fafafa` / `#f2f2f2` | insets, hover states |
+| `--border` | `#dbdbdb` | every hairline |
+| `--text` / `--text-secondary` / `--text-tertiary` | `#262626` / `#737373` / `#a8a8a8` | body / secondary / timestamps |
+| `--blue` | `#0095f6` | primary buttons, links-as-actions |
+| `--red` | `#ed4956` | likes, destructive actions, badges |
+| `--gradient-brand` | orange→purple | wordmark, avatar story rings |
+| `--radius` / `--radius-pill` | `8px` / `999px` | corners |
 
-Both fonts are loaded from Google Fonts in `base.html`'s `<head>` already —
-don't add another font import.
+Dark mode is automatic via `prefers-color-scheme` — it only re-defines these
+tokens, so **nothing else in your CSS needs a dark-mode branch.** The console
+skin works the same way (`body.console` re-defines the same names).
 
 ## Components
 
-**Cards** — `<div class="card">...</div>`. The standard content container:
-dark gradient surface, soft neon border, drop shadow. Nest headings/forms/
-tables/buttons inside. Add `.restricted` (`<div class="card restricted">`)
-for admin/developer-only entry points (e.g. the portal login) — red/purple
-glow instead of the standard pink/cyan, signals "not a normal page" without
-a whole separate page shell.
+### Avatars
 
-**Headings** — plain `<h1>`/`<h2>` are already styled (gradient-filled `<h1>`,
-glowing cyan `<h2>`). Don't add classes to them.
+Never write an `<img>` for a user — the partial handles the missing-avatar
+fallback (a letter tile), so no page renders a broken image:
 
-**Wide layout** — the page container is capped at 760px by default (good for
-forms/reading). For table/data-heavy pages (the developer panel's raw DB
-viewer, admin tables with lots of columns), widen it by overriding the
-`container_class` block: `{% block container_class %}wide{% endblock %}`
-caps it at 1200px instead. Don't hardcode a width in page CSS.
+```django
+{% include "_avatar.html" with u=post.owner %}            {# 32px default #}
+{% include "_avatar.html" with u=friend size="lg" %}      {# sm|md|lg|xl #}
+{% include "_avatar.html" with u=user ring=1 %}           {# gradient story ring #}
+```
 
-**Buttons** — plain `<button>` or `<a class="btn">` get the pink→purple
-gradient automatically. Add `.danger` for destructive actions (delete, ban,
-revoke). Add `data-confirm="Some question?"` to any button/link to get a
-confirm-dialog before it fires (handled by `static/js/base.js`, no extra JS
-needed per-page).
+### Buttons
 
-**Forms** — wrap in `<form class="stacked-form">`. Labels and inputs inside
-are styled automatically (dark fields, neon focus glow) — don't add classes
-to individual fields.
+```html
+<button>Primary</button>                      <!-- blue -->
+<button class="secondary">Secondary</button>  <!-- grey -->
+<button class="danger">Report</button>        <!-- red text, transparent -->
+<button class="solid-danger">Ban</button>     <!-- solid red -->
+<button class="ghost">Post</button>           <!-- bare blue text -->
+<button class="sm">Compact</button>           <!-- for table/ticket rows -->
+<button class="block">Full width</button>
+<button class="iconbtn"><svg …></svg></button><!-- bare icon (heart, send…) -->
+```
 
-**Badges** — `<span class="badge MODIFIER">Text</span>`. Existing modifiers,
-reuse by meaning rather than adding new ones:
-- `.active` / `.public` → green, "good" state
-- `.expired` / `.role_restricted` → yellow, "caution" state
-- `.revoked` / `.private` → red, "blocked/bad" state
+Add `data-confirm="Are you sure?"` to any destructive control — `base.js`
+wires the confirm dialog, no extra JS needed.
 
-**Tables** — plain `<table>`/`<thead>`/`<tbody>` are fully styled (neon
-header row, row-hover highlight). No extra classes needed.
+### Content blocks
 
-**Flash messages** — handled automatically by `base.html` via Django's
-messages framework (`messages.success(request, "...")` etc. in a view).
-`.error` / `.success` / `.info` tags get red/green/yellow glow borders.
+- `.card` — the standard panel. `.card.flush` removes padding for tables/lists.
+- `.post` — a feed post (`.post__head`, `.post__media`, `.post__actions`, `.post__body`).
+- `.user-row` — one person in a list (search results, friends, DM list).
+- `.post-grid` / `.post-tile` — the 3-up profile grid with a hover stats overlay.
+- `.empty-state` — icon + heading + explanation, for "no posts yet" cases.
+- `.dev-note` — amber-bordered box for `TODO(Name):` stubs. Use this instead of
+  `.text-muted` so a scaffolding note never reads as real product copy.
+- `.stat-grid` / `.stat` — console KPI tiles.
+- `.ticket` — a report card; add `.ticket--post|--user|--message` for the
+  color-coded left border.
 
-**Helper text** — `<p class="text-muted">` for secondary/explanatory copy.
+### Forms
 
-## Background effects (don't touch unless you mean to)
+Wrap in `<form class="stacked-form">`; labels and fields style themselves, and
+`{{ form.as_p }}` works as-is. `.search-bar` is the rounded search input with a
+leading magnifier icon.
 
-`body::before` and `body::after` in `base.css` render the ambient glow blobs
-and the retro perspective grid at the bottom of the viewport — this is
-global and automatic on every page, nothing to add per-template.
+### Icons
+
+Inline SVGs, stroke-based, `viewBox="0 0 24 24"`, `fill="none"`,
+`stroke="currentColor"`. They inherit size and color from `.iconbtn` /
+`.navlink`. Copy an existing one from `templates/navbar.html` rather than
+pulling in an icon library — the project ships no external JS/CSS.
+
+## Static files and caching
+
+`base.html` loads CSS/JS through `{% versioned_static %}`
+(`accounts/templatetags/assets.py`), which appends the file's modified time:
+
+```
+/static/css/base.css?v=1737052800
+```
+
+That means **you don't need to hard-refresh after pulling a CSS change** — the
+URL changes with the file, so the browser refetches exactly when it should.
+Use `{% versioned_static %}` (not `{% static %}`) for any new stylesheet or
+script you add.

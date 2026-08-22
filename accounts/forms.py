@@ -39,4 +39,4 @@ class TwoFactorForm(forms.Form):
 class ProfileForm(forms.ModelForm):
     class Meta:
         model = Profile
-        fields = ["bio", "avatar"]
+        fields = ["full_name", "bio", "avatar"]

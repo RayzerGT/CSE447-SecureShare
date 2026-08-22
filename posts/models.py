@@ -1,18 +1,17 @@
 """
 posts/models.py
 Assigned to: Afnan Satter (post creation/CRUD). Encryption of image/caption:
-Mos. Mahabuba Akter Munia (posts/encryption.py). Visibility enforcement:
-Mos. Mahabuba Akter Munia (posts/permissions.py).
+Mos. Mahabuba Akter Munia (posts/encryption.py).
+
+VISIBILITY: there is no per-post visibility setting. Every post is
+friends-only, full stop - a post is visible to its owner and to that owner's
+friends, and to nobody else. That single rule is enforced in posts/views.py
+via social.models.Friendship, so there's no visibility column to keep in
+sync and no separate permissions layer for posts.
 """
 
 from django.conf import settings
 from django.db import models
-
-
-class Visibility(models.TextChoices):
-    PUBLIC = "public", "Public"
-    PRIVATE = "private", "Private"
-    ROLE_RESTRICTED = "role_restricted", "Role-Restricted"
 
 
 class Post(models.Model):
@@ -21,17 +20,13 @@ class Post(models.Model):
     image = models.ImageField(upload_to="posts/")
     caption = models.TextField(blank=True)
 
-    # TODO(Mos. Mahabuba Akter Munia): once posts/encryption.py is implemented, the
-    # plaintext `image`/`caption` fields above should hold/derive from ciphertext
-    # for PRIVATE / ROLE_RESTRICTED posts. Keep a clear split between what's public
-    # (may stay unencrypted per instructor's threat model) vs what must be encrypted.
+    # TODO(Mos. Mahabuba Akter Munia): once posts/encryption.py is implemented,
+    # the plaintext `image`/`caption` fields above should hold/derive from
+    # ciphertext. Since every post is friends-only now, this applies to all
+    # posts - there's no "public" tier that could be left unencrypted.
     encrypted_caption = models.TextField(blank=True)
     encrypted_image_blob = models.BinaryField(blank=True, null=True)
     mac_tag = models.CharField(max_length=255, blank=True)
-
-    visibility = models.CharField(max_length=20, choices=Visibility.choices, default=Visibility.PUBLIC)
-    # TODO(Mos. Mahabuba Akter Munia): used when visibility == ROLE_RESTRICTED to decide who may view.
-    allowed_role = models.CharField(max_length=16, blank=True, help_text="Role required when role-restricted.")
 
     is_flagged = models.BooleanField(default=False)
     is_deleted = models.BooleanField(default=False)  # moderation soft-delete (see moderation app)
@@ -42,4 +37,4 @@ class Post(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"Post({self.owner.username}, {self.visibility})"
+        return f"Post({self.owner.username}, #{self.pk})"

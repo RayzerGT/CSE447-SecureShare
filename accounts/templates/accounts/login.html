@@ -1,13 +1,26 @@
 {% extends "base.html" %}
-{% block title %}Login - SecureShare{% endblock %}
+{% block title %}Log in - SecureShare{% endblock %}
+{% block chrome %}{% endblock %}
+{% block main_class %}app-main--auth{% endblock %}
+
 {% block content %}
-<div class="card">
-    <h1>Log in</h1>
-    <form method="post" class="stacked-form">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Continue</button>
-    </form>
-    <p class="text-muted">No account yet? <a href="{% url 'accounts:register' %}">Register</a></p>
+<div class="auth-shell">
+    <div class="auth-card">
+        <div class="auth-card__wordmark">SecureShare</div>
+
+        <form method="post" class="stacked-form">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="block">Log in</button>
+        </form>
+
+        <div class="auth-divider">OR</div>
+
+        <a href="{% url 'portal:portal_login' %}" class="btn ghost block">Admin &amp; Developer portal</a>
+    </div>
+
+    <div class="auth-alt">
+        Don't have an account? <a href="{% url 'accounts:register' %}">Sign up</a>
+    </div>
 </div>
 {% endblock %}

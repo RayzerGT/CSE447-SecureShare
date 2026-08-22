@@ -1,20 +1,34 @@
 {% extends "base.html" %}
-{% block title %}Admin & Developer Portal - SecureShare{% endblock %}
+{% block title %}Admin &amp; Developer Portal - SecureShare{% endblock %}
+{% block chrome %}{% endblock %}
+{% block main_class %}app-main--auth{% endblock %}
+
 {% block content %}
-<div class="card restricted">
-    <h1>Restricted Access</h1>
-    <p class="text-muted">
-        Admin &amp; Developer Portal. Same account/password as your regular
-        login - access here depends on your account's role.
-    </p>
-    <p class="text-muted">
-        TODO(Razeen Hassan): this skips the 2FA step regular login goes
-        through - decide whether 2FA should be mandatory for this portal.
-    </p>
-    <form method="post" class="stacked-form">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="danger">Enter portal</button>
-    </form>
+<div class="auth-shell portal-shell">
+    <div class="auth-card">
+        <div class="auth-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h1>Restricted access</h1>
+        <p class="text-muted">
+            Admin &amp; Developer portal. Same account and password as your regular
+            login - what you can reach here depends on your role.
+        </p>
+
+        <form method="post" class="stacked-form">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="block solid-danger">Enter portal</button>
+        </form>
+
+        <p class="dev-note" style="margin-top:18px;text-align:left">
+            TODO(Razeen Hassan): this skips the 2FA step regular login goes through -
+            decide whether 2FA should be mandatory for this portal.
+        </p>
+    </div>
+
+    <div class="auth-alt">
+        Not an admin? <a href="{% url 'accounts:login' %}">Go to the normal login</a>
+    </div>
 </div>
 {% endblock %}

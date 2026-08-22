@@ -27,10 +27,12 @@ from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.forms import LoginForm
-from accounts.models import Role
+from accounts.models import Profile, Role, TwoFactorSettings
 from accounts.security import session_manager
 
+from .forms import AdminCreationForm
 from .logging_service import log_event
+from .models import AccountState
 from .permissions import developer_required
 from .views import apply_account_status_action
 
@@ -64,6 +66,10 @@ def portal_login(request):
             profile = getattr(user, "profile", None) if user else None
             is_admin = user and (user.is_staff or getattr(profile, "is_admin", False))
             is_developer = user and (user.is_superuser or getattr(profile, "is_developer", False))
+
+            if user is not None and AccountState.is_blocked_for(user):
+                messages.error(request, "This account is locked, suspended, or banned.")
+                return render(request, "moderation/portal_login.html", {"form": LoginForm()})
 
             if user is not None and (is_admin or is_developer):
                 django_login(request, user)
@@ -109,32 +115,49 @@ def manage_admins(request):
     """
     Owner: Mos. Mahabuba Akter Munia
 
-    REQUIREMENT: "developers will be able to create new admins, remove
-    existing ones." This is the ONLY place the Admin role can be granted or
-    revoked - admins themselves can't do this (see moderation/views.py::
-    user_management, which lost its promote/demote buttons for exactly this
-    reason). Scoped to USER/ADMIN accounts only - Developer accounts aren't
-    managed here.
+    REQUIREMENT: "Admins can only be created by Developer users... Whenever a
+    new admin is created it will not be through a promotion system. A
+    developer will create a new admin through registering them into the
+    system." This is the ONLY place the Admin role can be granted - there is
+    no more promote-a-user path (see moderation/views.py::user_management,
+    which never had promote/demote buttons for exactly this reason). Also
+    covers "developers... capable of creating/removing/banning admins":
+    remove demotes an admin back to a Standard User, ban applies the same
+    account-status cascade (friendship removal, session revocation) used
+    elsewhere via apply_account_status_action. Scoped to Admin accounts only
+    - Developer accounts aren't managed here.
     """
-    if request.method == "POST":
-        target_user = get_object_or_404(
-            User, pk=request.POST.get("user_id"), profile__role__in=[Role.USER, Role.ADMIN]
-        )
+    if request.method == "POST" and request.POST.get("form") == "create_admin":
+        create_form = AdminCreationForm(request.POST)
+        if create_form.is_valid():
+            new_admin = create_form.save(commit=False)
+            # TODO(Afnan Satter): replace set_password with the from-scratch
+            # hash+salt pipeline (accounts/security/hashing.py) instead of
+            # Django's built-in hasher - same TODO as accounts/views.py::register.
+            new_admin.set_password(create_form.cleaned_data["password"])
+            new_admin.save()
+            Profile.objects.create(user=new_admin, role=Role.ADMIN)
+            TwoFactorSettings.objects.create(user=new_admin)
+            log_event(request.user, "admin_created", target=new_admin)
+            return redirect("portal:manage_admins")
+    else:
+        create_form = AdminCreationForm()
+
+    if request.method == "POST" and request.POST.get("form") == "manage_admin":
+        target_user = get_object_or_404(User, pk=request.POST.get("user_id"), profile__role=Role.ADMIN)
         action = request.POST.get("action")
 
-        if action == "make_admin" and target_user.profile.role == Role.USER:
-            target_user.profile.role = Role.ADMIN
-            target_user.profile.save(update_fields=["role"])
-            log_event(request.user, "admin_granted", target=target_user)
-        elif action == "remove_admin" and target_user.profile.role == Role.ADMIN:
+        if action == "remove_admin":
             target_user.profile.role = Role.USER
             target_user.profile.save(update_fields=["role"])
             log_event(request.user, "admin_removed", target=target_user)
+        elif action == "ban_admin":
+            apply_account_status_action(request.user, target_user, "ban")
 
         return redirect("portal:manage_admins")
 
-    accounts = User.objects.select_related("profile").filter(profile__role__in=[Role.USER, Role.ADMIN])
-    return render(request, "moderation/manage_admins.html", {"accounts": accounts})
+    accounts = User.objects.select_related("profile", "account_state").filter(profile__role=Role.ADMIN)
+    return render(request, "moderation/manage_admins.html", {"accounts": accounts, "create_form": create_form})
 
 
 @login_required

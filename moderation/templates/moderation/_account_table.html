@@ -1,0 +1,55 @@
+{% comment %}
+Shared account-status table for the admin panel's user_management() and the
+developer panel's manage_users(). Both post the same actions to their own
+view, which is why the <form> has no action= (it posts to the current URL)
+and both views share apply_account_status_action() in moderation/views.py.
+Expects `users`.
+{% endcomment %}
+<div class="card flush">
+    <div class="table-scroll">
+        <table>
+            <thead>
+                <tr><th>User</th><th>Status</th><th>Warnings</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td>
+                        <div class="cell-user">
+                            {% include "_avatar.html" with u=u %}
+                            <div>
+                                <div class="user-row__name">{{ u.username }}</div>
+                                <div class="user-row__sub">{{ u.email|default:"no email" }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        {% with status=u.account_state.status|default:"active" %}
+                        <span class="badge {% if status == 'active' %}active{% else %}revoked{% endif %}">
+                            {{ u.account_state.get_status_display|default:"Active" }}
+                        </span>
+                        {% endwith %}
+                    </td>
+                    <td>{{ u.account_state.warning_count|default:"0" }}</td>
+                    <td>
+                        <form method="post" class="btn-row">
+                            {% csrf_token %}
+                            <input type="hidden" name="user_id" value="{{ u.id }}">
+                            <button name="action" value="warn" class="secondary sm">Warn</button>
+                            <button name="action" value="lock" class="secondary sm">Lock</button>
+                            <button name="action" value="suspend" class="secondary sm">Suspend</button>
+                            <button name="action" value="reactivate" class="secondary sm">Reactivate</button>
+                            <button name="action" value="revoke_sessions" class="secondary sm"
+                                    data-confirm="Revoke all sessions for {{ u.username }}?">Revoke sessions</button>
+                            <button name="action" value="ban" class="solid-danger sm"
+                                    data-confirm="Ban {{ u.username }}? This removes all their friendships and hides their posts.">Ban</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-muted">No standard user accounts yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

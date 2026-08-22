@@ -1,0 +1,25 @@
+# Dependencies for LOCAL DEVELOPMENT ON SQLITE ONLY.
+#
+# Identical to requirements.txt except it leaves out mysqlclient, which is the
+# one package that needs a C compiler and the MySQL client libraries to build
+# (and is therefore the usual reason `pip install -r requirements.txt` fails
+# on macOS/Linux). SQLite is built into Python, so nothing here needs
+# compiling.
+#
+# Use this if you are working with DB_ENGINE=sqlite and don't need to connect
+# to the shared Aiven server. Verified: the whole app - every page, all three
+# roles - runs correctly with mysqlclient absent entirely.
+#
+# You WILL need the full requirements.txt (i.e. mysqlclient) before the
+# project demonstration, or any time you set DB_ENGINE=mysql:
+#     pip install -r requirements.txt
+
+Django==5.0.14
+Pillow==11.3.0
+python-dotenv==1.2.3
+
+# Transitive dependencies, pinned for full reproducibility (pip would resolve
+# these automatically anyway, but pinning avoids any drift between machines).
+asgiref==3.12.1
+sqlparse==0.6.0
+tzdata==2026.3

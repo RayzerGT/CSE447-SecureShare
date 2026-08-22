@@ -1,47 +1,85 @@
 {% extends "base.html" %}
-{% block title %}Post by {{ post.owner.username }} - SecureShare{% endblock %}
+{% block title %}{{ post.owner.username }} on SecureShare{% endblock %}
+
 {% block content %}
-<div class="card">
-    <a href="{% url 'accounts:profile_detail' post.owner.username %}">{{ post.owner.username }}</a>
-    <span class="badge {{ post.visibility }}">{{ post.get_visibility_display }}</span>
-    {% if post.image %}<img class="post-image" src="{{ post.image.url }}" alt="post image">{% endif %}
-    <p>{{ post.caption }}</p>
+<div class="post-view">
+    <div class="post-view__media">
+        {% if post.image %}<img src="{{ post.image.url }}" alt="Post by {{ post.owner.username }}">{% endif %}
+    </div>
 
-    {% if post.owner == user %}
-        <a href="{% url 'posts:edit' post.id %}" class="btn">Edit</a>
-    {% endif %}
-</div>
+    <header class="post__head post-view__head">
+        <a href="{% url 'accounts:profile_detail' post.owner.username %}">
+            {% include "_avatar.html" with u=post.owner %}
+        </a>
+        <div class="post__meta">
+            <a href="{% url 'accounts:profile_detail' post.owner.username %}" class="post__user">{{ post.owner.username }}</a>
+        </div>
+        <div class="post__head-end">
+            {% if post.owner == user %}
+                <a href="{% url 'posts:edit' post.id %}" class="btn ghost">Edit</a>
+            {% endif %}
+        </div>
+    </header>
 
-<div class="card">
-    <h2>Likes &amp; comments</h2>
-    <p class="text-muted">
-        TODO(Mos. Mahabuba Akter Munia): render like button + comment list/form here
-        (social app: social/views.py::like_post, add_comment).
-    </p>
-    <a href="{% url 'social:like_post' post.id %}" class="btn">Like</a>
+    <aside class="post-view__side">
+        <div class="post-view__scroll">
+            {% if post.caption %}
+            <div class="thread-item">
+                {% include "_avatar.html" with u=post.owner %}
+                <div>
+                    <p class="comment">
+                        <a href="{% url 'accounts:profile_detail' post.owner.username %}" class="comment__user">{{ post.owner.username }}</a>{{ post.caption }}
+                    </p>
+                    <time class="post__time">{{ post.created_at|timesince }} ago</time>
+                </div>
+            </div>
+            {% endif %}
 
-    <form method="post" action="{% url 'social:add_comment' post.id %}" class="stacked-form">
-        {% csrf_token %}
-        <label for="content">Add a comment</label>
-        <textarea name="content" id="content" rows="2"></textarea>
-        <button type="submit">Comment</button>
-    </form>
+            {% for comment in comments %}
+            <div class="thread-item">
+                {% include "_avatar.html" with u=comment.user %}
+                <div>
+                    <p class="comment">
+                        <a href="{% url 'accounts:profile_detail' comment.user.username %}" class="comment__user">{{ comment.user.username }}</a>{{ comment.content }}
+                    </p>
+                    <time class="post__time">{{ comment.created_at|timesince }} ago</time>
+                </div>
+            </div>
+            {% empty %}
+                {% if not post.caption %}
+                <div class="empty-state">
+                    <h2>No comments yet</h2>
+                    <p>Start the conversation.</p>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
 
-    {% for comment in post.comments.all %}
-        {% if not comment.is_deleted %}
-        <p><strong>{{ comment.user.username }}:</strong> {{ comment.content }}</p>
-        {% endif %}
-    {% endfor %}
-</div>
+        <div class="post__actions">
+            <a href="{% url 'social:like_post' post.id %}"
+               class="iconbtn {% if is_liked %}is-liked{% endif %}" aria-label="Like">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21.2l7.7-7.7 1.1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+            </a>
+            <form method="post" action="{% url 'moderation:submit_report' post.id %}" class="inline-form spacer">
+                {% csrf_token %}
+                <input type="hidden" name="reason" value="">
+                <button type="submit" class="iconbtn" aria-label="Report post"
+                        data-confirm="Report this post to the admins?">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                </button>
+            </form>
+        </div>
 
-<div class="card">
-    <h2>Report this post</h2>
-    <p class="text-muted">Flags the post for admin review (see the admin panel's Reports menu).</p>
-    <form method="post" action="{% url 'moderation:submit_report' post.id %}" class="stacked-form">
-        {% csrf_token %}
-        <label for="reason">Why are you reporting this?</label>
-        <textarea name="reason" id="reason" rows="2"></textarea>
-        <button type="submit" class="danger" data-confirm="Report this post to the admins?">Report</button>
-    </form>
+        <div class="post__body">
+            <p class="post__likes">{{ like_count }} like{{ like_count|pluralize }}</p>
+            <time class="post__time">{{ post.created_at|date:"F j, Y" }}</time>
+        </div>
+
+        <form method="post" action="{% url 'social:add_comment' post.id %}" class="comment-bar">
+            {% csrf_token %}
+            <input type="text" name="content" placeholder="Add a comment..." aria-label="Add a comment">
+            <button type="submit" class="ghost">Post</button>
+        </form>
+    </aside>
 </div>
 {% endblock %}

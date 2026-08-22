@@ -5,9 +5,13 @@ Assigned to: Razeen Hassan (see todo.txt)
 REQUIREMENT (CSE447 Project.pdf): "Role-Based Access Control (RBAC) must
 define separate privileges for administrators and regular users to restrict
 sensitive operations." This is the RBAC core - the single source of truth
-for permission decisions. Other apps (posts/permissions.py, social/views.py,
-moderation/views.py itself) should call into this rather than re-implementing
-role checks inline.
+for permission decisions. Other apps (social/views.py, moderation/views.py
+itself) should call into this rather than re-implementing role checks inline.
+
+Scope note: this is about ADMIN vs DEVELOPER vs USER privileges only. Post
+visibility is not an RBAC concern - every post is simply friends-only (see
+posts/views.py), and the old Public/Private/Role-Restricted feature that
+used to sit on top of this module has been removed.
 
 TODO(Razeen Hassan):
     1. Define the actual permission matrix (which roles can do what -
@@ -32,12 +36,14 @@ role is walled off to its OWN area only:
     - User: the social site (feed/upload/messaging/social) - nothing
       moderation/portal-related.
     - Admin: the admin panel (/moderation/) ONLY. No feed/upload/messaging.
-      Can manage USER accounts only (lock/suspend/ban) - cannot touch
-      other Admin or Developer accounts, and cannot promote anyone to
-      Admin (that's a Developer-only power - see manage_admins()).
+      Can manage USER accounts only (lock/suspend/ban/warn) - cannot touch
+      other Admin or Developer accounts, and cannot create new admins
+      (that's a Developer-only power - see manage_admins()).
     - Developer: the developer panel (/portal/) ONLY. No feed/upload/
-      messaging, no admin panel. Can promote/demote the Admin role
-      (moderation/portal_views.py::manage_admins) and separately manage
+      messaging, no admin panel. Creates new admins directly by
+      registering them (NOT promotion - moderation/portal_views.py::
+      manage_admins(), moderation/forms.py::AdminCreationForm), can
+      remove (demote) or ban an existing admin, and separately manages
       USER accounts (moderation/portal_views.py::manage_users) - two
       distinct menus, kept apart from each other.
 `RoleAccessMiddleware` below enforces the "walled off to your own area"

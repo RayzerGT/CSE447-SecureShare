@@ -1,30 +1,37 @@
 {% extends "base.html" %}
 {% block title %}Audit Logs - SecureShare{% endblock %}
+{% block container_class %}wide{% endblock %}
+
 {% block content %}
-<h1>Audit &amp; security log viewer</h1>
-<form method="get" class="stacked-form">
-    <label for="q">Search action</label>
-    <input type="text" name="q" id="q" value="{{ query }}">
-    <button type="submit">Search</button>
+<div class="page-head">
+    <h1>Audit &amp; security log <span class="console-tag">Admin</span></h1>
+    <p class="text-muted">Failed logins, privilege changes, moderation actions and key access.</p>
+</div>
+
+<form method="get" class="search-bar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" name="q" value="{{ query }}" placeholder="Filter by action, e.g. account_ban" aria-label="Search action">
 </form>
 
-<div class="card">
-    <table>
-        <thead>
-            <tr><th>Time</th><th>Actor</th><th>Action</th><th>Target</th></tr>
-        </thead>
-        <tbody>
-            {% for log in logs %}
-            <tr>
-                <td>{{ log.created_at }}</td>
-                <td>{{ log.actor.username|default:"system" }}</td>
-                <td>{{ log.action }}</td>
-                <td>{{ log.target_type }} #{{ log.target_id }}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="4">No matching events.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="card flush">
+    <div class="table-scroll">
+        <table>
+            <thead>
+                <tr><th>Time</th><th>Actor</th><th>Action</th><th>Target</th></tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td class="text-muted">{{ log.created_at }}</td>
+                    <td>{{ log.actor.username|default:"system" }}</td>
+                    <td><code>{{ log.action }}</code></td>
+                    <td class="text-muted">{{ log.target_type }} #{{ log.target_id }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-muted">No matching events.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}

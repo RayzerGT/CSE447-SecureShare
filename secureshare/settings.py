@@ -15,6 +15,7 @@ building what.
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -75,6 +76,8 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                # Feeds `pending_request_count` to the Friends nav badge.
+                "social.context_processors.pending_requests",
             ],
         },
     },
@@ -84,33 +87,62 @@ WSGI_APPLICATION = "secureshare.wsgi.application"
 ASGI_APPLICATION = "secureshare.asgi.application"
 
 # ---------------------------------------------------------------------------
-# Database (MySQL, per project requirements)
+# Database - two interchangeable backends, chosen by DB_ENGINE in your .env
 #
-# Points at the team's shared central database (Aiven, by default) so
-# everyone works against the same data/migration state. Aiven requires TLS,
-# hence MYSQL_SSL_MODE=REQUIRED by default - if you point this at a local
-# MySQL/MariaDB that doesn't have SSL set up, set MYSQL_SSL_MODE= (empty) in
-# your own .env to disable it.
+#   DB_ENGINE=sqlite  (default)  -> a local db.sqlite3 file. Zero setup, no
+#                                   credentials, no network. Use this for
+#                                   day-to-day development.
+#   DB_ENGINE=mysql              -> the team's shared central database on
+#                                   Aiven. Use this for the project
+#                                   demonstration, and any time you need to
+#                                   work against the shared data.
+#
+# Both backends run the exact same migrations and the same application code -
+# switching is only ever a one-line change in .env, never a code change.
+#
+# Aiven requires TLS, hence MYSQL_SSL_MODE=REQUIRED by default. If you point
+# the mysql backend at a local MySQL/MariaDB without SSL, set MYSQL_SSL_MODE=
+# (empty) in your own .env.
+#
+# Run `python manage.py dbinfo` to see which backend you are currently on.
 # ---------------------------------------------------------------------------
-_MYSQL_OPTIONS = {
-    "charset": "utf8mb4",
-    "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
-}
-_MYSQL_SSL_MODE = os.getenv("MYSQL_SSL_MODE", "REQUIRED")
-if _MYSQL_SSL_MODE:
-    _MYSQL_OPTIONS["ssl_mode"] = _MYSQL_SSL_MODE
+DB_ENGINE = os.getenv("DB_ENGINE", "sqlite").strip().lower()
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.mysql",
-        "NAME": os.getenv("MYSQL_DATABASE", "secureshare"),
-        "USER": os.getenv("MYSQL_USER", "secureshare_user"),
-        "PASSWORD": os.getenv("MYSQL_PASSWORD", ""),
-        "HOST": os.getenv("MYSQL_HOST", "127.0.0.1"),
-        "PORT": os.getenv("MYSQL_PORT", "3306"),
-        "OPTIONS": _MYSQL_OPTIONS,
+if DB_ENGINE == "mysql":
+    _MYSQL_OPTIONS = {
+        "charset": "utf8mb4",
+        "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
     }
-}
+    _MYSQL_SSL_MODE = os.getenv("MYSQL_SSL_MODE", "REQUIRED")
+    if _MYSQL_SSL_MODE:
+        _MYSQL_OPTIONS["ssl_mode"] = _MYSQL_SSL_MODE
+
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": os.getenv("MYSQL_DATABASE", "secureshare"),
+            "USER": os.getenv("MYSQL_USER", "secureshare_user"),
+            "PASSWORD": os.getenv("MYSQL_PASSWORD", ""),
+            "HOST": os.getenv("MYSQL_HOST", "127.0.0.1"),
+            "PORT": os.getenv("MYSQL_PORT", "3306"),
+            "OPTIONS": _MYSQL_OPTIONS,
+        }
+    }
+elif DB_ENGINE == "sqlite":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / os.getenv("SQLITE_NAME", "db.sqlite3"),
+            # Fail fast instead of hanging when another process (e.g. a stray
+            # runserver) holds a write lock on the file.
+            "OPTIONS": {"timeout": 20},
+        }
+    }
+else:
+    raise ImproperlyConfigured(
+        f"DB_ENGINE must be 'sqlite' or 'mysql', got {DB_ENGINE!r}. "
+        "Check the DB_ENGINE line in your .env file."
+    )
 
 # ---------------------------------------------------------------------------
 # Password hashing

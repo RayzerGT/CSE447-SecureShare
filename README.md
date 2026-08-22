@@ -113,12 +113,47 @@ Regular users can report a post from its detail page; that both flags it
 for the existing content-moderation view and creates a `Report` row admins
 can act on.
 
-## Shared team database
+## Databases: SQLite for development, Aiven MySQL for the demo
 
-**Live and confirmed working:** a central MySQL 8.4 database is hosted on
-Aiven (free tier). All three of you should point at this **same** database
-(not separate local ones) so you see each other's test data and avoid
-migration-drift between machines. All migrations are already applied to it.
+The project runs on **either** backend, selected by one line in your `.env`:
+
+| `DB_ENGINE` | What it uses | When |
+|---|---|---|
+| `sqlite` *(default)* | a local `db.sqlite3` file | everyday development |
+| `mysql` | the shared Aiven MySQL 8.4 server | the project demonstration, and any work that needs the shared data |
+
+The application code and migrations are **identical** for both — switching is
+never a code change. Check where you are with `python manage.py dbinfo`.
+
+**Why SQLite for development:** no credentials, no network, no MySQL install,
+and your experiments can't disturb anyone else. Start from nothing with:
+
+```bash
+python manage.py migrate
+python manage.py seed_demo
+```
+
+**Step-by-step SQLite instructions live in `SQLITE_SETUP.txt`** — start there
+if you're setting up a machine for the first time. There is nothing to install
+for SQLite; it ships inside Python. `requirements-sqlite.txt` even lets you
+skip `mysqlclient`, the one dependency that needs a compiler.
+
+`seed_demo` creates the team's standard logins plus sample friends, posts,
+messages and reports (see `SETUP.md` for the account table). It's idempotent,
+and it refuses to run against the shared database unless you pass
+`--allow-shared`.
+
+**One thing to watch:** a migration you generate on SQLite still has to reach
+MySQL. Commit the migration file; whoever is on `mysql` runs `migrate` there.
+Before the demonstration, switch to `DB_ENGINE=mysql` and run `dbinfo` to
+confirm the shared DB is reachable and fully migrated.
+
+### The shared Aiven database
+
+**Live and confirmed working:** a central MySQL 8.4 database hosted on Aiven
+(free tier). This is what the demonstration runs against, and it's where
+shared test data lives, so everyone sees the same state. All migrations are
+already applied to it.
 
 The real host/port/username/password are deliberately **not** written down
 here or anywhere else in this repo (avoid publishing live infrastructure
@@ -131,12 +166,11 @@ Aiven requires an encrypted connection - keep `MYSQL_SSL_MODE=REQUIRED` in
 your `.env` for this database (no certificate file needed; verified working
 with `mysqlclient`). Don't remove it.
 
-If you're working offline or the shared DB is unreachable, you can point
-`.env` at a local MySQL/MariaDB instance instead — the app doesn't care
-which one it's talking to, only the `.env` values change. If your local
-server doesn't have SSL configured, set `MYSQL_SSL_MODE=` (empty) too. Just
-remember to switch back to the shared DB before pushing anything that
-depends on shared state.
+If you're working offline or the shared DB is unreachable, use
+`DB_ENGINE=sqlite` (above) — that's the simplest fallback. You can also point
+`.env` at a local MySQL/MariaDB instance instead; only the `.env` values
+change. If your local MySQL doesn't have SSL configured, set
+`MYSQL_SSL_MODE=` (empty) too.
 
 ## System requirements
 
@@ -210,9 +244,9 @@ run `makemigrations` unless you change a model.
 secureshare/   Django project settings/urls (the config package, not an app)
 accounts/      Login, Registration, 2FA, session management, profile
 crypto_core/   RSA, ECC, Key Management Module, MAC, encryption facade
-posts/         Photo feed: creation, visibility, encryption
-messaging/     Encrypted 1-on-1 direct messages
-social/        Likes and comments
+posts/         Photo feed: creation and encryption (posts are friends-only)
+messaging/     Encrypted 1-on-1 direct messages (friends only)
+social/        Likes, comments, and the friends system
 moderation/    RBAC core, admin panel, audit log, user/role management,
                content moderation
 templates/, static/  shared UI shell (base.html, navbar, css, js)

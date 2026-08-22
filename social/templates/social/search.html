@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Search - SecureShare{% endblock %}
+{% block container_class %}narrow{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <h1>Search</h1>
+</div>
+
+<form method="get" class="search-bar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" name="q" value="{{ query }}" placeholder="Search by username" aria-label="Search by username" autofocus>
+</form>
+
+<div class="card flush">
+    {% for row in rows %}
+    <div class="user-row">
+        <a href="{% url 'accounts:profile_detail' row.user.username %}">
+            {% include "_avatar.html" with u=row.user size="md" %}
+        </a>
+        <div class="user-row__body">
+            <a href="{% url 'accounts:profile_detail' row.user.username %}" class="user-row__name">{{ row.user.username }}</a>
+            <div class="user-row__sub">{{ row.user.profile.full_name|default:row.user.profile.get_role_display }}</div>
+        </div>
+        <div class="user-row__actions">
+            {% if row.status == "friends" %}
+                <span class="badge active">Friends</span>
+            {% elif row.status == "request_sent" %}
+                <button type="button" class="secondary" disabled>Requested</button>
+            {% elif row.status == "request_received" %}
+                <a href="{% url 'social:friends_list' %}" class="btn">Respond</a>
+            {% else %}
+                <form method="post" action="{% url 'social:send_friend_request' row.user.username %}" class="inline-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit">Add friend</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+    {% empty %}
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            {% if query %}
+                <h2>No results</h2>
+                <p>Nothing matched &ldquo;{{ query }}&rdquo;.</p>
+            {% else %}
+                <h2>Find your friends</h2>
+                <p>Search for someone by their username to send a friend request.</p>
+            {% endif %}
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}

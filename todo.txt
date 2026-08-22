@@ -48,6 +48,37 @@ plus queryset scoping in each management view (so even a hand-crafted
 request against the right URL 404s if the target account is the wrong
 role) - see Razeen's and Munia's sections below for the specific files.
 
+New admins are created by a Developer directly registering them
+(moderation/portal_views.py::manage_admins(), form=AdminCreationForm in
+moderation/forms.py) - there is no promote-a-Standard-User path anymore.
+Developers can also remove (demote to Standard User) or ban an admin from
+the same page. Banning any account (Standard User or Admin, via
+apply_account_status_action() in moderation/views.py) cascades: all of
+that account's friendships are deleted (social.models.Friendship.
+remove_all_for()) so their posts disappear from former friends' feeds and
+they vanish from friend lists, and all of their active sessions are
+revoked. Locked/suspended/banned accounts are also blocked from
+logging in at all (accounts.models -> moderation.models.AccountState.
+is_blocked_for(), checked in accounts/views.py::login_view()/verify_2fa()
+and moderation/portal_views.py::portal_login()).
+
+POST VISIBILITY is deliberately as simple as it gets: a post is visible to
+its owner and to that owner's friends, and to nobody else. There is no
+public/private/role-restricted setting, no Visibility choices field and no
+posts/permissions.py - that whole feature was removed to cut complexity. The
+rule lives inline in posts/views.py (feed() and detail()) using
+social.models.Friendship. Note this is UNRELATED to the Admin/Developer/User
+RBAC above, which is a graded requirement and stays.
+
+FUNCTIONAL FEATURES BUILT ON TOP OF THIS SKELETON (not part of the 12
+graded security requirements, but the app surface those requirements get
+implemented into): Instagram-style feed, friends/following system with
+search, friends-only messaging with image attachments, profile editing
+(full_name/bio/avatar), and a reports/tickets pipeline (post/user/message)
+that admins resolve with kind-specific actions (delete post, warn/
+suspend/ban user, delete message). See each teammate's section below for
+exactly which files.
+
 ================================================================================
 RAZEEN HASSAN -- Login, Registration, RBAC, Session management, ECC, Admin panel
 ================================================================================
@@ -57,7 +88,12 @@ in accounts/.
 
 1. accounts/views.py -- register(), login_view(), logout_view(),
    sessions_dashboard(), profile_view(), profile_edit() (yours; verify_2fa()
-   in the same file belongs to Munia - see her section).
+   in the same file belongs to Munia - see her section). profile_view() now
+   also shows friend-count/post-count stats and a full_name field
+   (accounts/forms.py::ProfileForm, editable via profile_edit()) - purely
+   functional additions, not a security item. login_view() now also blocks
+   locked/suspended/banned accounts via moderation.models.AccountState.
+   is_blocked_for() before the 2FA step.
 
 2. accounts/security/session_manager.py
    - Currently rides on Django's default signed session cookie -- swap for a
@@ -79,8 +115,9 @@ in accounts/.
    developer_required checks is_superuser, has_permission always grants,
    RoleAccessMiddleware's prefix-list approach should probably be driven
    by the real permission matrix too once it exists). Other apps
-   (posts/permissions.py, social/views.py, moderation/views.py itself)
-   should call into this rather than re-implementing role checks inline.
+   (social/views.py, moderation/views.py itself) should call into this
+   rather than re-implementing role checks inline. NOTE: post visibility is
+   NOT part of this - posts are simply friends-only, no RBAC involved.
    accounts.models.Role (USER/ADMIN/DEVELOPER) / Profile.is_admin /
    Profile.is_developer are the building blocks this sits on top of -
    DEVELOPER is a separate privilege tier from ADMIN, not a superset (see
@@ -144,16 +181,23 @@ uses Django's default password hasher as a placeholder until you replace it.
 
 4. posts/ -- post creation: models.py, forms.py, views.py (feed/upload/
    detail/edit), templates/. The core CRUD for photo posts is all yours.
-   NOTE: posts/permissions.py (visibility enforcement) and
-   posts/encryption.py (encrypting private/role-restricted posts) are
-   dedicated files inside this same app owned by Munia, precisely so
-   there's no overlap with your code - you own the plain create/view/edit
-   flow, she owns who-can-see-it and what's-encrypted.
+   feed() and detail() enforce the ONE visibility rule - a post is visible
+   to its owner and that owner's friends, nothing else (REQUIREMENT: "only
+   friends can... view each others posts"), via social.models.Friendship.
+   That's plain application logic, not one of the 12 security items.
+   NOTE: posts/encryption.py (encrypting post images/captions) is a
+   dedicated file inside this same app owned by Munia, precisely so there's
+   no overlap with your code - you own the create/view/edit flow, she owns
+   what's-encrypted.
 
 5. messaging/ -- encrypted 1-on-1 direct messages: models.py, views.py,
    templates/. The Message model (sender, recipient, ciphertext, mac_tag,
-   created_at, is_read) and inbox/thread views are yours. The actual
-   encrypt/decrypt calls go through Munia's encryption_service facade
+   created_at, is_read, image) and inbox/thread views are yours. thread()
+   enforces friends-only messaging (social.models.Friendship -
+   REQUIREMENT: "only friends can message each other") and messages can
+   carry an optional image attachment (messaging/forms.py::MessageForm) -
+   both plain functional features. The actual encrypt/decrypt calls go
+   through Munia's encryption_service facade
    (crypto_core/encryption_service.py) - there's a TODO in
    messaging/views.py marking exactly where to wire it in.
 
@@ -185,40 +229,64 @@ placeholder), which is yours to replace.
    accounts/models.py's Profile.encrypted_contact_info, accounts/views.py,
    and accounts/forms.py already have TODOs pointing at this.
 
-5. posts/permissions.py -- enforce post visibility (Public / Private /
-   Role-Restricted) using Razeen's RBAC core (moderation/permissions.py).
-   Currently a placeholder that shows everything to everyone.
+5. posts/encryption.py -- encrypt/decrypt post images + captions before
+   storage / on display, via your encryption_service facade. posts/models.py
+   already has the encrypted_caption / encrypted_image_blob / mac_tag fields
+   waiting. Applies to EVERY post (there's no public tier to skip), so
+   there's no visibility flag to branch on.
 
-6. posts/encryption.py -- encrypt/decrypt private and role-restricted post
-   images + captions before storage / on display, via your
-   encryption_service facade. posts/models.py already has the
-   encrypted_caption / encrypted_image_blob / mac_tag fields waiting.
+   (There used to be a posts/permissions.py here for Public/Private/
+   Role-Restricted post visibility. That feature was removed - every post is
+   simply friends-only now - so the file is gone. Don't recreate it; the
+   graded RBAC requirement is moderation/permissions.py, which is separate
+   and still Razeen's.)
 
-7. social/ -- likes and comments on posts: models.py, views.py. No
-   XSS/sanitization sub-feature -- see the note at the top of this file.
+7. social/ -- likes and comments on posts, plus the friends/following
+   system: models.py (Like, Comment, FriendRequest, Friendship), views.py.
+   No XSS/sanitization sub-feature -- see the note at the top of this file.
    social/views.py::delete_comment() has a TODO to swap its naive
    owner-or-staff check for Razeen's RBAC core once it exists.
+   FriendRequest/Friendship (REQUIREMENT: "friends/following system...
+   users can look for friends through searching") are a plain functional
+   feature, fully implemented, not a security item: search_users() (case-
+   insensitive username search), send/accept/reject_friend_request(),
+   remove_friend(), friends_list(). Friendship.friend_ids_of()/
+   are_friends() are the helpers posts/views.py and messaging/views.py call
+   into for their friends-only gates. Friendship.remove_all_for() is the
+   helper moderation/views.py::apply_account_status_action() calls on ban.
 
 8. moderation/views.py -- all but dashboard() here are yours (Razeen owns
    dashboard(), the shell his admin panel links out to):
    - audit_logs() + moderation/logging_service.py -- searchable log viewer
      (failed logins, 2FA failures, privilege escalation, key access,
      content deletions) and the write path other apps call into.
-   - user_management() -- lock/suspend/ban Standard User accounts only
+   - user_management() -- lock/suspend/ban/warn Standard User accounts only
      (moderation/models.py's AccountState), trigger admin-side session
      revocation (calls into Razeen's accounts/security/session_manager.py).
-     NO promote/demote here anymore - creating/removing admins is a
-     Developer-only power now (see manage_admins() below). Both the list
-     and the POST target are scoped to Role.USER so an admin literally
-     cannot act on another Admin or a Developer account, even by hand-
-     crafting a request (get_object_or_404 with profile__role=Role.USER).
+     apply_account_status_action() also handles "warn" (increments
+     AccountState.warning_count, no status change) and cascades a ban into
+     Friendship.remove_all_for() + revoke_all_sessions_for_user() (see the
+     HIERARCHY note at the top of this file). NO promote/demote here
+     anymore - creating/removing admins is a Developer-only power now (see
+     manage_admins() below). Both the list and the POST target are scoped
+     to Role.USER so an admin literally cannot act on another Admin or a
+     Developer account, even by hand-crafting a request (get_object_or_404
+     with profile__role=Role.USER).
    - content_moderation() -- review flagged posts/comments, delete
      inappropriate content.
-   - submit_report() / reports_list() -- regular users report a post
-     (button on posts/detail.html, Afnan's template) via
-     moderation/models.py's new Report model; you review pending reports
-     and delete-the-post-or-dismiss. This is the "menu that lets admins
-     check reports made by regular users" requirement.
+   - submit_report() / report_user() / report_message() / reports_list() --
+     regular users report a post (posts/detail.html), a user (accounts/
+     templates/accounts/profile.html, someone else's profile), or a message
+     (messaging/templates/messaging/thread.html), all via
+     moderation/models.py's Report model (now has a `kind` field: post/
+     user/message - REQUIREMENT: "users can report friends, posts,
+     messages"). reports_list() is the admin's ticket queue
+     (REQUIREMENT: "admins view reports in the form of tickets") and
+     branches on report.kind for the right resolving action: post ->
+     delete_post/dismiss, user -> warn/suspend/ban/dismiss (REQUIREMENT:
+     "power to ban/suspend or warn users"), message -> delete_message/
+     dismiss. moderation/templates/moderation/reports_list.html renders the
+     three ticket types differently.
 
 9. moderation/portal_views.py::developer_dashboard() -- the raw database
    viewer at /portal/developer/ (gated by Razeen's developer_required, a
@@ -235,16 +303,60 @@ placeholder), which is yours to replace.
 
 10. moderation/portal_views.py::manage_admins() / manage_users() -- the
     Developer panel's two menus (linked from developer_dashboard.html):
-    - manage_admins(): grant/revoke the Admin role (Standard User <-> Admin
-      only - Developer accounts aren't touched here). This is now the ONLY
-      place the Admin role can change hands.
-    - manage_users(): same lock/suspend/ban/reactivate/revoke_sessions
+    - manage_admins(): REQUIREMENT: "Admins can only be created by
+      Developer users... whenever a new admin is created it will not be
+      through a promotion system - a developer will create a new admin
+      through registering them into the system." create_form
+      (moderation/forms.py::AdminCreationForm) registers a brand-new User +
+      Profile(role=ADMIN) + TwoFactorSettings row directly, same pattern as
+      accounts/views.py::register() (set_password placeholder and all).
+      remove_admin demotes back to Standard User; ban_admin runs the same
+      apply_account_status_action(..., "ban") cascade used everywhere else.
+      Scoped to Role.ADMIN accounts only - Developer accounts aren't
+      touched here.
+    - manage_users(): same lock/suspend/ban/warn/reactivate/revoke_sessions
       power as admin's user_management() (shares its account-status logic
       via apply_account_status_action() in moderation/views.py), just
       reachable from the developer panel instead of the admin one, per the
       "two separate menus" requirement.
     Both wide layout, both scoped with get_object_or_404(..., profile__role=...)
     the same way user_management() is.
+
+================================================================================
+FRONTEND (shared - read FRONTEND.md before writing any template)
+================================================================================
+The UI is Instagram-inspired for the social side and a separate dark
+"console" skin for the Admin/Developer panels. Both live in ONE stylesheet
+(static/css/base.css) + one shell (templates/base.html); base.html picks the
+skin from the signed-in user's role automatically. The split is cosmetic -
+the real wall is still moderation/permissions.py::RoleAccessMiddleware - but
+it means a privileged panel never looks like the social site.
+
+Shared files nobody should fork or duplicate:
+    templates/base.html                       - page shell + role-aware skin
+    templates/navbar.html                     - left rail / mobile tab bar,
+                                                shows only the current role's
+                                                own links
+    templates/_avatar.html                    - ALWAYS render user avatars
+                                                through this (handles the
+                                                no-avatar letter fallback)
+    templates/_page_template.html             - copy this to start a new page
+    static/css/base.css, static/js/base.js
+    accounts/templatetags/assets.py           - {% versioned_static %}; use it
+                                                instead of {% static %} so a
+                                                CSS change isn't hidden behind
+                                                a stale browser cache
+
+Per-app partials (owned by whoever owns that app's views):
+    messaging/templates/messaging/_dm_list.html         -> Afnan Satter
+    moderation/templates/moderation/_account_table.html -> Mos. Mahabuba Akter Munia
+    social/context_processors.py                        -> Mos. Mahabuba Akter Munia
+        (feeds `pending_request_count` to the Friends nav badge; registered in
+        settings.py TEMPLATES.OPTIONS.context_processors)
+
+GOTCHA: never name a template context variable `messages` - that name belongs
+to django.contrib.messages, and using it makes your data render as flash
+banners. messaging/views.py::thread() uses `thread_messages` for this reason.
 
 ================================================================================
 NOTES
@@ -256,6 +368,29 @@ NOTES
 - XSS/input-sanitization is NOT in the graded requirements document -- it
   was only in the team's own project-ideas proposal, and has been dropped
   from this plan. Don't spend time on it.
+- SETTING UP A NEW MACHINE: read SQLITE_SETUP.txt. Step-by-step, ~5 minutes,
+  no credentials needed. There is nothing to install for SQLite (it's built
+  into Python), and requirements-sqlite.txt lets you skip mysqlclient - the
+  one dependency that needs a compiler and usually breaks installs on
+  macOS/Linux.
+- DATABASE: the project runs on either backend, chosen by DB_ENGINE in your
+  own .env (which is gitignored, so everyone's choice is independent):
+      DB_ENGINE=sqlite  (default) -> local db.sqlite3 file, zero setup. Use
+                                     this for day-to-day development.
+      DB_ENGINE=mysql             -> the shared Aiven server. Used for the
+                                     PROJECT DEMONSTRATION and shared data.
+  Same code, same migrations, both ways - switching is never a code change.
+      python manage.py dbinfo     -> which DB am I on? can it connect? are
+                                     migrations up to date?
+      python manage.py seed_demo  -> fill a fresh SQLite DB with the team's
+                                     logins + sample content (idempotent;
+                                     refuses to touch the shared DB without
+                                     --allow-shared)
+  Both commands live in accounts/management/commands/ (shared tooling, not
+  account-specific - Django only discovers commands inside an installed app).
+  CAUTION: a migration generated on SQLite still has to be applied to MySQL.
+  Commit the migration file; whoever is on mysql runs migrate there. Before
+  the demo, switch to DB_ENGINE=mysql and run dbinfo to confirm it's current.
 - .env.example lists every environment variable the app reads; requirements.txt
   pins every Python dependency (see README.md "System requirements" for
   cross-platform setup instructions, and "Shared team database" for how to

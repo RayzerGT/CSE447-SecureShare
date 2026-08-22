@@ -5,6 +5,11 @@ Assigned to: Afnan Satter (see todo.txt)
 REQUIREMENT (Idea.pdf): "Encrypted Direct Messaging (1-on-1 DMs)... Messages
 will be encrypted at rest using the team's custom encryption scheme and key
 management module."
+
+Messaging is friends-only - see messaging/views.py, which checks
+social.models.Friendship.are_friends() before allowing a thread to be
+opened or a message sent (Munia's Friendship model, functional feature -
+not part of the from-scratch crypto work).
 """
 
 from django.conf import settings
@@ -21,6 +26,12 @@ class Message(models.Model):
     # facade) are implemented, stop writing to plaintext_body and rely on
     # ciphertext + mac_tag only.
     plaintext_body = models.TextField(blank=True)
+
+    # Image attachments are NOT part of the encryption requirement scope
+    # discussion below - just a plain upload, same as posts/messaging
+    # images generally. If the team decides message images should be
+    # encrypted too, that's an extension of Munia's encrypt_message TODO.
+    image = models.ImageField(upload_to="messages/", blank=True, null=True)
 
     ciphertext = models.TextField(blank=True)
     mac_tag = models.CharField(max_length=255, blank=True)

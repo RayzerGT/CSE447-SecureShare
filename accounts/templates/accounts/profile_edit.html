@@ -1,12 +1,44 @@
 {% extends "base.html" %}
 {% block title %}Edit profile - SecureShare{% endblock %}
+{% block container_class %}narrow{% endblock %}
+
 {% block content %}
-<div class="card">
+<div class="page-head">
     <h1>Edit profile</h1>
-    <form method="post" enctype="multipart/form-data" class="stacked-form">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Save</button>
-    </form>
 </div>
+
+<form method="post" enctype="multipart/form-data" class="card stacked-form">
+    {% csrf_token %}
+
+    <div class="edit-identity">
+        {% include "_avatar.html" with u=user size="lg" %}
+        <div>
+            <div class="post__user">{{ user.username }}</div>
+            <span class="text-muted">{{ user.profile.get_role_display }}</span>
+        </div>
+    </div>
+
+    <label for="{{ form.avatar.id_for_label }}">Profile photo</label>
+    {{ form.avatar }}
+    {{ form.avatar.errors }}
+
+    <label for="{{ form.full_name.id_for_label }}">Name</label>
+    {{ form.full_name }}
+    <span class="helptext">Your display name. This can be different from your username.</span>
+    {{ form.full_name.errors }}
+
+    <label for="{{ form.bio.id_for_label }}">Bio</label>
+    {{ form.bio }}
+    {{ form.bio.errors }}
+
+    <div class="btn-row" style="margin-top:20px">
+        <button type="submit">Save changes</button>
+        <a href="{% url 'accounts:profile' %}" class="btn secondary">Cancel</a>
+    </div>
+</form>
+
+<p class="dev-note">
+    Contact info is stored as an encrypted blob (TODO: crypto_core decryption by
+    Mos. Mahabuba Akter Munia before display), so it isn't editable here yet.
+</p>
 {% endblock %}

@@ -11,8 +11,9 @@ TODO(Mos. Mahabuba Akter Munia):
     Implement using crypto_core.encryption_service.EncryptionService
     (encrypt_post / decrypt_post) + crypto_core.mac (compute_mac/verify_mac).
     Call `encrypt_and_store` from posts/views.py (Afnan's) on upload/edit,
-    and `decrypt_for_display` when rendering a post whose visibility isn't
-    PUBLIC (or per your team's final threat model - document the choice).
+    and `decrypt_for_display` when rendering a post. Every post is
+    friends-only - there is no public tier - so this applies to all posts
+    uniformly, with no visibility flag to branch on.
 """
 
 from crypto_core.encryption_service import EncryptionService

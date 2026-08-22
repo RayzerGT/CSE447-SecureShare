@@ -1,45 +1,73 @@
 {% extends "base.html" %}
 {% block title %}Admin Dashboard - SecureShare{% endblock %}
+{% block container_class %}wide{% endblock %}
+
 {% block content %}
-<h1>Admin Security Dashboard</h1>
-<p class="text-muted">
-    TODO(Razeen Hassan): access is currently gated on Django's built-in
-    `is_staff` flag (moderation/permissions.py::admin_required) rather than
-    the finished RBAC core.
+<div class="page-head">
+    <h1>Security dashboard <span class="console-tag">Admin</span></h1>
+    <p class="text-muted">Signed in as {{ user.username }}.</p>
+</div>
+
+<p class="dev-note">
+    TODO(Razeen Hassan): access is currently gated on Django's built-in `is_staff`
+    flag (moderation/permissions.py::admin_required) rather than the finished RBAC core.
 </p>
 
-<div class="card">
-    <h2>System health</h2>
-    <p>Total registered users: <strong>{{ total_users }}</strong></p>
-    <p>Banned users: <strong>{{ banned_users }}</strong></p>
-    <p>Suspended users: <strong>{{ suspended_users }}</strong></p>
-    <p>Active sessions: <strong>{{ active_sessions }}</strong></p>
-    <p>Flagged posts pending review: <strong>{{ flagged_posts }}</strong></p>
-    <p>Pending reports: <strong>{{ pending_reports }}</strong></p>
+<div class="stat-grid">
+    <div class="stat">
+        <div class="stat__value">{{ total_users }}</div>
+        <div class="stat__label">Registered users</div>
+    </div>
+    <div class="stat {% if banned_users %}is-alert{% endif %}">
+        <div class="stat__value">{{ banned_users }}</div>
+        <div class="stat__label">Banned</div>
+    </div>
+    <div class="stat {% if suspended_users %}is-alert{% endif %}">
+        <div class="stat__value">{{ suspended_users }}</div>
+        <div class="stat__label">Suspended</div>
+    </div>
+    <div class="stat">
+        <div class="stat__value">{{ active_sessions }}</div>
+        <div class="stat__label">Active sessions</div>
+    </div>
+    <div class="stat {% if flagged_posts %}is-alert{% endif %}">
+        <div class="stat__value">{{ flagged_posts }}</div>
+        <div class="stat__label">Flagged posts</div>
+    </div>
+    <div class="stat {% if pending_reports %}is-alert{% endif %}">
+        <div class="stat__value">{{ pending_reports }}</div>
+        <div class="stat__label">Pending reports</div>
+    </div>
 </div>
 
 <div class="card">
-    <h2>Recent security events</h2>
-    <table>
-        <thead><tr><th>Time</th><th>Actor</th><th>Action</th></tr></thead>
-        <tbody>
-            {% for event in recent_events %}
-            <tr>
-                <td>{{ event.created_at }}</td>
-                <td>{{ event.actor.username|default:"system" }}</td>
-                <td>{{ event.action }}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="3">No events logged yet.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <a href="{% url 'moderation:audit_logs' %}" class="btn">View full audit log</a>
+    <div class="btn-row">
+        <a href="{% url 'moderation:reports_list' %}" class="btn">Open reports ({{ pending_reports }})</a>
+        <a href="{% url 'moderation:user_management' %}" class="btn secondary">User management</a>
+        <a href="{% url 'moderation:content_moderation' %}" class="btn secondary">Content moderation</a>
+    </div>
 </div>
 
-<div class="card">
-    <a href="{% url 'moderation:user_management' %}" class="btn">User management</a>
-    <a href="{% url 'moderation:content_moderation' %}" class="btn">Content moderation</a>
-    <a href="{% url 'moderation:reports_list' %}" class="btn">Reports ({{ pending_reports }})</a>
+<div class="card flush">
+    <div class="list-head">Recent security events</div>
+    <div class="table-scroll">
+        <table>
+            <thead><tr><th>Time</th><th>Actor</th><th>Action</th></tr></thead>
+            <tbody>
+                {% for event in recent_events %}
+                <tr>
+                    <td class="text-muted">{{ event.created_at }}</td>
+                    <td>{{ event.actor.username|default:"system" }}</td>
+                    <td><code>{{ event.action }}</code></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" class="text-muted">No events logged yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div style="padding:14px 16px">
+        <a href="{% url 'moderation:audit_logs' %}" class="btn secondary">View full audit log</a>
+    </div>
 </div>
 {% endblock %}

@@ -1,25 +1,43 @@
 {% extends "base.html" %}
 {% block title %}Content Moderation - SecureShare{% endblock %}
+{% block container_class %}wide{% endblock %}
+
 {% block content %}
-<h1>Global content moderation</h1>
-<p class="text-muted">
-    Posts get flagged via user reports - see the <a href="{% url 'moderation:reports_list' %}">Reports</a>
-    menu for who reported what and why. This view is just the flagged-posts list.
-</p>
-<div class="card">
+<div class="page-head">
+    <h1>Content moderation <span class="console-tag">Admin</span></h1>
+    <p class="text-muted">
+        Posts get flagged via user reports - see the
+        <a href="{% url 'moderation:reports_list' %}">Reports</a> menu for who
+        reported what and why. This view is just the flagged-posts list.
+    </p>
+</div>
+
+<div class="mod-grid">
     {% for post in flagged_posts %}
-    <div class="card">
-        <p>{{ post.owner.username }}</p>
-        {% if post.image %}<img class="post-image" src="{{ post.image.url }}" alt="post image">{% endif %}
-        <p>{{ post.caption }}</p>
-        <form method="post" class="inline-form">
-            {% csrf_token %}
-            <input type="hidden" name="post_id" value="{{ post.id }}">
-            <button name="action" value="delete_post" class="danger" data-confirm="Delete this post?">Delete post</button>
-        </form>
+    <div class="card flush mod-item">
+        {% if post.image %}
+        <div class="mod-item__media"><img src="{{ post.image.url }}" alt="Flagged post"></div>
+        {% endif %}
+        <div class="mod-item__body">
+            <div class="cell-user">
+                {% include "_avatar.html" with u=post.owner size="sm" %}
+                <strong>{{ post.owner.username }}</strong>
+            </div>
+            <p class="text-muted">{{ post.caption|default:"(no caption)"|truncatechars:120 }}</p>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="post_id" value="{{ post.id }}">
+                <button name="action" value="delete_post" class="solid-danger sm"
+                        data-confirm="Delete this post?">Delete post</button>
+            </form>
+        </div>
     </div>
     {% empty %}
-    <p>No flagged posts.</p>
+    <div class="card empty-state" style="grid-column:1/-1">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        <h2>Nothing flagged</h2>
+        <p>No posts are currently awaiting review.</p>
+    </div>
     {% endfor %}
 </div>
 {% endblock %}

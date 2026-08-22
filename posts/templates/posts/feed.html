@@ -1,20 +1,100 @@
 {% extends "base.html" %}
-{% block title %}Feed - SecureShare{% endblock %}
+{% block title %}SecureShare{% endblock %}
+{% block container_class %}narrow{% endblock %}
+
 {% block content %}
-<h1>Feed</h1>
-<p class="text-muted">
-    TODO(Mos. Mahabuba Akter Munia): this feed currently shows ALL posts regardless of
-    visibility - posts/permissions.py::visible_posts_queryset is a placeholder.
-</p>
-{% for post in posts %}
-<div class="card">
-    <a href="{% url 'accounts:profile_detail' post.owner.username %}">{{ post.owner.username }}</a>
-    <span class="badge {{ post.visibility }}">{{ post.get_visibility_display }}</span>
-    {% if post.image %}<img class="post-image" src="{{ post.image.url }}" alt="post image">{% endif %}
-    <p>{{ post.caption }}</p>
-    <a href="{% url 'posts:detail' post.id %}">View &amp; comment</a>
+<div class="feed">
+
+    {# --- friends strip (Instagram's story rail) --- #}
+    {% if friends %}
+    <div class="stories">
+        <a href="{% url 'accounts:profile' %}" class="story">
+            {% include "_avatar.html" with u=user size="lg" ring=1 %}
+            <span class="story__name">You</span>
+        </a>
+        {% for friend in friends %}
+        <a href="{% url 'accounts:profile_detail' friend.username %}" class="story">
+            {% include "_avatar.html" with u=friend size="lg" ring=1 %}
+            <span class="story__name">{{ friend.username }}</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% for post in posts %}
+    <article class="post">
+        <header class="post__head">
+            <a href="{% url 'accounts:profile_detail' post.owner.username %}">
+                {% include "_avatar.html" with u=post.owner ring=1 %}
+            </a>
+            <div class="post__meta">
+                <a href="{% url 'accounts:profile_detail' post.owner.username %}" class="post__user">{{ post.owner.username }}</a>
+                {% if post.owner.profile.full_name %}<span class="post__sub">{{ post.owner.profile.full_name }}</span>{% endif %}
+            </div>
+            <div class="post__head-end">
+                <time class="post__time">{{ post.created_at|timesince }}</time>
+            </div>
+        </header>
+
+        {% if post.image %}
+        <a href="{% url 'posts:detail' post.id %}" class="post__media">
+            <img src="{{ post.image.url }}" alt="Post by {{ post.owner.username }}">
+        </a>
+        {% endif %}
+
+        <div class="post__actions">
+            <a href="{% url 'social:like_post' post.id %}"
+               class="iconbtn {% if post.id in liked_post_ids %}is-liked{% endif %}"
+               aria-label="Like">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21.2l7.7-7.7 1.1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+            </a>
+            <a href="{% url 'posts:detail' post.id %}" class="iconbtn" aria-label="Comment">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.9 8.9 0 0 1-3.8-.9L3 20.5l1.6-4.9A8.4 8.4 0 0 1 3.6 11a8.4 8.4 0 0 1 8.5-8.5A8.4 8.4 0 0 1 21 11.5z"/></svg>
+            </a>
+            <form method="post" action="{% url 'moderation:submit_report' post.id %}" class="inline-form spacer">
+                {% csrf_token %}
+                <button type="submit" class="iconbtn" aria-label="Report post"
+                        data-confirm="Report this post to the admins?">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                </button>
+            </form>
+        </div>
+
+        <div class="post__body">
+            <p class="post__likes">{{ post.like_count }} like{{ post.like_count|pluralize }}</p>
+
+            {% if post.caption %}
+            <p class="post__caption">
+                <a href="{% url 'accounts:profile_detail' post.owner.username %}" class="post__user">{{ post.owner.username }}</a>{{ post.caption }}
+            </p>
+            {% endif %}
+
+            {% if post.comment_count %}
+                <a href="{% url 'posts:detail' post.id %}" class="post__link">
+                    View all {{ post.comment_count }} comment{{ post.comment_count|pluralize }}
+                </a>
+            {% endif %}
+
+            <time class="post__time">{{ post.created_at|timesince }} ago</time>
+        </div>
+
+        <form method="post" action="{% url 'social:add_comment' post.id %}" class="comment-bar">
+            {% csrf_token %}
+            <input type="text" name="content" placeholder="Add a comment..." aria-label="Add a comment">
+            <button type="submit" class="ghost">Post</button>
+        </form>
+    </article>
+
+    {% empty %}
+    <div class="card empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        <h2>No posts yet</h2>
+        <p>Your feed shows posts from you and your friends.</p>
+        <div class="btn-row" style="justify-content:center;margin-top:16px">
+            <a href="{% url 'social:search_users' %}" class="btn">Find friends</a>
+            <a href="{% url 'posts:upload' %}" class="btn secondary">Share a photo</a>
+        </div>
+    </div>
+    {% endfor %}
 </div>
-{% empty %}
-<p>No posts yet. <a href="{% url 'posts:upload' %}">Be the first to upload.</a></p>
-{% endfor %}
 {% endblock %}
