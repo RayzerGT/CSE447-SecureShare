@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Messages - SecureShare{% endblock %}
+{% block container_class %}wide{% endblock %}
+
+{% block content %}
+<div class="dm">
+    {% include "messaging/_dm_list.html" %}
+
+    <div class="dm__thread">
+        <div class="empty-state" style="margin:auto">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            <h2>Your messages</h2>
+            <p>Send private photos and messages to a friend.</p>
+            <a href="{% url 'social:friends_list' %}" class="btn" style="margin-top:14px">Send message</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

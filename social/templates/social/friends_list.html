@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Friends - SecureShare{% endblock %}
+{% block container_class %}narrow{% endblock %}
+
+{% block content %}
+<div class="page-head page-head--split">
+    <h1>Friends</h1>
+    <a href="{% url 'social:search_users' %}" class="btn ghost">Find friends</a>
+</div>
+
+{% if incoming %}
+<div class="card flush">
+    <div class="list-head">Friend requests <span class="navlink__badge">{{ incoming|length }}</span></div>
+    {% for req in incoming %}
+    <div class="user-row">
+        <a href="{% url 'accounts:profile_detail' req.sender.username %}">
+            {% include "_avatar.html" with u=req.sender size="md" %}
+        </a>
+        <div class="user-row__body">
+            <a href="{% url 'accounts:profile_detail' req.sender.username %}" class="user-row__name">{{ req.sender.username }}</a>
+            <div class="user-row__sub">Sent {{ req.created_at|timesince }} ago</div>
+        </div>
+        <div class="user-row__actions">
+            <form method="post" action="{% url 'social:accept_friend_request' req.id %}" class="inline-form">
+                {% csrf_token %}
+                <button type="submit">Confirm</button>
+            </form>
+            <form method="post" action="{% url 'social:reject_friend_request' req.id %}" class="inline-form">
+                {% csrf_token %}
+                <button type="submit" class="secondary">Delete</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if outgoing %}
+<div class="card flush">
+    <div class="list-head">Sent requests</div>
+    {% for req in outgoing %}
+    <div class="user-row">
+        <a href="{% url 'accounts:profile_detail' req.receiver.username %}">
+            {% include "_avatar.html" with u=req.receiver size="md" %}
+        </a>
+        <div class="user-row__body">
+            <a href="{% url 'accounts:profile_detail' req.receiver.username %}" class="user-row__name">{{ req.receiver.username }}</a>
+            <div class="user-row__sub">Waiting for them to accept</div>
+        </div>
+        <div class="user-row__actions">
+            <button type="button" class="secondary" disabled>Requested</button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="card flush">
+    <div class="list-head">Your friends</div>
+    {% for friend in friends %}
+    <div class="user-row">
+        <a href="{% url 'accounts:profile_detail' friend.username %}">
+            {% include "_avatar.html" with u=friend size="md" %}
+        </a>
+        <div class="user-row__body">
+            <a href="{% url 'accounts:profile_detail' friend.username %}" class="user-row__name">{{ friend.username }}</a>
+            <div class="user-row__sub">{{ friend.profile.full_name }}</div>
+        </div>
+        <div class="user-row__actions">
+            <a href="{% url 'messaging:thread' friend.username %}" class="btn secondary">Message</a>
+            <form method="post" action="{% url 'social:remove_friend' friend.username %}" class="inline-form">
+                {% csrf_token %}
+                <button type="submit" class="danger" data-confirm="Remove {{ friend.username }} as a friend?">Remove</button>
+            </form>
+        </div>
+    </div>
+    {% empty %}
+    <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <h2>No friends yet</h2>
+        <p>Only friends can message each other and see each other's posts.</p>
+        <a href="{% url 'social:search_users' %}" class="btn" style="margin-top:14px">Find friends</a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

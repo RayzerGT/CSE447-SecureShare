@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.env
+db.sqlite3
+# Any local SQLite database (SQLITE_NAME in .env can point elsewhere).
+*.sqlite3
+*.sqlite3-journal
+/media/
+/staticfiles/
+.venv/
+venv/
+*.log
+.DS_Store

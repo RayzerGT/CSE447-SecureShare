@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ editing|yesno:"Edit post,Create new post" }} - SecureShare{% endblock %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data" class="create stacked-form">
+    {% csrf_token %}
+
+    <header class="create__head">
+        <h1>{{ editing|yesno:"Edit post,Create new post" }}</h1>
+        <button type="submit" class="ghost">{{ editing|yesno:"Save,Share" }}</button>
+    </header>
+
+    <div class="create__body">
+        <div class="create__media" data-dropzone>
+            <div class="dropzone">
+                <div data-image-placeholder>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    <p>Drag a photo here, or choose one below.</p>
+                </div>
+                <img class="dropzone__preview" data-image-preview alt="Selected photo preview" hidden>
+                {{ form.image }}
+                {{ form.image.errors }}
+            </div>
+        </div>
+
+        <div class="create__side">
+            <div class="create__author">
+                {% include "_avatar.html" with u=user %}
+                <span class="post__user">{{ user.username }}</span>
+            </div>
+
+            <label for="{{ form.caption.id_for_label }}">Caption</label>
+            {{ form.caption }}
+
+            <p class="text-muted" style="margin-top:12px">
+                Only your friends can see this post.
+            </p>
+
+            <p class="dev-note">
+                Posts are meant to be encrypted before storage (TODO:
+                Mos. Mahabuba Akter Munia, posts/encryption.py) - not yet wired here.
+            </p>
+
+            <button type="submit">{{ editing|yesno:"Save changes,Share" }}</button>
+        </div>
+    </div>
+</form>
+{% endblock %}

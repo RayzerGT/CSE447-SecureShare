@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Reports - SecureShare{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <h1>Reports <span class="console-tag">Admin</span></h1>
+    <p class="text-muted">
+        Tickets filed by regular users against posts, users, and messages. Each
+        kind has its own resolving actions; resolving a ticket closes it either way.
+    </p>
+</div>
+
+{% for report in reports %}
+<div class="card ticket ticket--{{ report.kind }}">
+    <div class="ticket__head">
+        <span class="badge">{{ report.get_kind_display }}</span>
+        <span>
+            Reported by <strong>{{ report.reporter.username }}</strong>
+            {% if report.kind == "post" %}
+                on post #{{ report.post.id }} by <strong>{{ report.post.owner.username }}</strong>
+            {% elif report.kind == "user" %}
+                against <strong>{{ report.reported_user.username }}</strong>
+            {% elif report.kind == "message" %}
+                against a message from <strong>{{ report.message.sender.username }}</strong>
+            {% endif %}
+        </span>
+        <span class="ticket__time">{{ report.created_at }}</span>
+    </div>
+
+    {% if report.kind == "post" %}
+        <div class="ticket__quote">
+            {{ report.post.caption|default:"(no caption)" }}
+            {% if report.post.image %}<img class="ticket__media" src="{{ report.post.image.url }}" alt="Reported post">{% endif %}
+        </div>
+    {% elif report.kind == "message" %}
+        <div class="ticket__quote">
+            {{ report.message.plaintext_body|default:"(no text)" }}
+            {% if report.message.image %}<img class="ticket__media" src="{{ report.message.image.url }}" alt="Reported message photo">{% endif %}
+        </div>
+    {% endif %}
+
+    <p class="ticket__reason">Reason: {{ report.reason|default:"(no reason given)" }}</p>
+
+    <form method="post" class="btn-row">
+        {% csrf_token %}
+        <input type="hidden" name="report_id" value="{{ report.id }}">
+
+        {% if report.kind == "post" %}
+            <button name="action" value="delete_post" class="solid-danger sm"
+                    data-confirm="Delete the reported post?">Delete post</button>
+        {% elif report.kind == "user" %}
+            <button name="action" value="warn" class="secondary sm">Warn user</button>
+            <button name="action" value="suspend" class="secondary sm"
+                    data-confirm="Suspend {{ report.reported_user.username }}?">Suspend</button>
+            <button name="action" value="ban" class="solid-danger sm"
+                    data-confirm="Ban {{ report.reported_user.username }}? This removes all their friendships and hides their posts.">Ban</button>
+        {% elif report.kind == "message" %}
+            <button name="action" value="delete_message" class="solid-danger sm"
+                    data-confirm="Delete the reported message?">Delete message</button>
+        {% endif %}
+
+        <button name="action" value="dismiss" class="secondary sm">Dismiss</button>
+    </form>
+</div>
+{% empty %}
+<div class="card empty-state">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+    <h2>Inbox zero</h2>
+    <p>No pending reports.</p>
+</div>
+{% endfor %}
+{% endblock %}

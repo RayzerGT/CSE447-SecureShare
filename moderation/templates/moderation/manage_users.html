@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Manage Users - SecureShare{% endblock %}
+{% block container_class %}wide{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <h1>Manage users <span class="console-tag">Developer</span></h1>
+    <p class="text-muted">
+        Standard User accounts - the same warn/lock/suspend/ban/revoke powers admins
+        have, reached from the developer panel instead.
+    </p>
+</div>
+
+{% include "moderation/_account_table.html" %}
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}User Management - SecureShare{% endblock %}
+{% block container_class %}wide{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <h1>User management <span class="console-tag">Admin</span></h1>
+    <p class="text-muted">
+        Standard User accounts only - admins can warn, lock, suspend or ban users,
+        but can't touch other Admin or Developer accounts, and can't create new
+        admins (that's a Developer-only power).
+    </p>
+</div>
+
+{% include "moderation/_account_table.html" %}
+{% endblock %}

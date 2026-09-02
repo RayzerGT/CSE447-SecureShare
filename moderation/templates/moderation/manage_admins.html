@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Manage Admins - SecureShare{% endblock %}
+{% block container_class %}wide{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <h1>Manage admins <span class="console-tag">Developer</span></h1>
+    <p class="text-muted">
+        New admins are registered here directly - there is no promote-a-user path.
+        Admins can't create or remove other admins themselves.
+    </p>
+</div>
+
+<div class="admin-split">
+    <form method="post" class="card stacked-form">
+        {% csrf_token %}
+        <input type="hidden" name="form" value="create_admin">
+        <h2>Create a new admin</h2>
+        {{ create_form.as_p }}
+        <button type="submit">Create admin</button>
+    </form>
+
+    <div class="card flush">
+        <div class="list-head">Existing admins</div>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr><th>User</th><th>Status</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                    {% for u in accounts %}
+                    <tr>
+                        <td>
+                            <div class="cell-user">
+                                {% include "_avatar.html" with u=u %}
+                                <div>
+                                    <div class="user-row__name">{{ u.username }}</div>
+                                    <div class="user-row__sub">{{ u.email|default:"no email" }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            {% with status=u.account_state.status|default:"active" %}
+                            <span class="badge {% if status == 'active' %}active{% else %}revoked{% endif %}">
+                                {{ u.account_state.get_status_display|default:"Active" }}
+                            </span>
+                            {% endwith %}
+                        </td>
+                        <td>
+                            <form method="post" class="btn-row">
+                                {% csrf_token %}
+                                <input type="hidden" name="form" value="manage_admin">
+                                <input type="hidden" name="user_id" value="{{ u.id }}">
+                                <button name="action" value="remove_admin" class="secondary sm"
+                                        data-confirm="Remove admin rights from {{ u.username }}? They become a Standard User.">Remove admin</button>
+                                <button name="action" value="ban_admin" class="solid-danger sm"
+                                        data-confirm="Ban {{ u.username }}?">Ban</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-muted">No admins yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

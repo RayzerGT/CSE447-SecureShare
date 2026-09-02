@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}{{ profile_user.username }} - SecureShare{% endblock %}
+
+{% block content %}
+<header class="profile-head">
+    <div class="profile-head__media">
+        {% include "_avatar.html" with u=profile_user size="xl" %}
+    </div>
+
+    <div class="profile-head__body">
+        <div class="profile-head__title">
+            <h1 class="profile-head__username">{{ profile_user.username }}</h1>
+            <span class="badge">{{ profile.get_role_display }}</span>
+
+            {% if friend_status == "self" %}
+                <a href="{% url 'accounts:profile_edit' %}" class="btn secondary">Edit profile</a>
+                <a href="{% url 'accounts:sessions' %}" class="btn secondary">Security</a>
+
+            {% elif friend_status == "friends" %}
+                <a href="{% url 'messaging:thread' profile_user.username %}" class="btn">Message</a>
+                <form method="post" action="{% url 'social:remove_friend' profile_user.username %}" class="inline-form">
+                    {% csrf_token %}
+                    <button type="submit" class="secondary"
+                            data-confirm="Remove {{ profile_user.username }} as a friend?">Friends &#9662;</button>
+                </form>
+
+            {% elif friend_status == "request_sent" %}
+                <button type="button" class="secondary" disabled>Requested</button>
+
+            {% elif friend_status == "request_received" %}
+                <a href="{% url 'social:friends_list' %}" class="btn">Respond to request</a>
+
+            {% else %}
+                <form method="post" action="{% url 'social:send_friend_request' profile_user.username %}" class="inline-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit">Add friend</button>
+                </form>
+            {% endif %}
+
+            {% if not is_self %}
+                <form method="post" action="{% url 'moderation:report_user' profile_user.username %}" class="inline-form">
+                    {% csrf_token %}
+                    <button type="submit" class="danger"
+                            data-confirm="Report {{ profile_user.username }} to the admins?">Report</button>
+                </form>
+            {% endif %}
+        </div>
+
+        <div class="profile-stats">
+            <div><strong>{{ post_count }}</strong> <span>post{{ post_count|pluralize }}</span></div>
+            <div><strong>{{ friend_count }}</strong> <span>friend{{ friend_count|pluralize }}</span></div>
+        </div>
+
+        <div class="profile-bio">
+            {% if profile.full_name %}<p class="profile-bio__name">{{ profile.full_name }}</p>{% endif %}
+            {% if profile.bio %}<p>{{ profile.bio|linebreaksbr }}</p>{% endif %}
+        </div>
+    </div>
+</header>
+
+<nav class="profile-tabs">
+    <span class="profile-tab is-active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Posts
+    </span>
+</nav>
+
+{% if is_friend %}
+    {% if posts %}
+    <div class="post-grid">
+        {% for post in posts %}
+        <a href="{% url 'posts:detail' post.id %}" class="post-tile">
+            {% if post.image %}<img src="{{ post.image.url }}" alt="Post by {{ profile_user.username }}">{% endif %}
+            <span class="post-tile__overlay">
+                <span class="post-tile__stat">
+                    <svg viewBox="0 0 24 24" stroke-width="1.5"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21.2l7.7-7.7 1.1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+                    {{ post.like_count }}
+                </span>
+                <span class="post-tile__stat">
+                    <svg viewBox="0 0 24 24" stroke-width="1.5"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.9 8.9 0 0 1-3.8-.9L3 20.5l1.6-4.9A8.4 8.4 0 0 1 3.6 11a8.4 8.4 0 0 1 8.5-8.5A8.4 8.4 0 0 1 21 11.5z"/></svg>
+                    {{ post.comment_count }}
+                </span>
+            </span>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        <h2>No posts yet</h2>
+        {% if is_self %}<p><a href="{% url 'posts:upload' %}">Share your first photo.</a></p>{% endif %}
+    </div>
+    {% endif %}
+{% else %}
+    <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <h2>This account is private</h2>
+        <p>Become friends with {{ profile_user.username }} to see their photos.</p>
+    </div>
+{% endif %}
+{% endblock %}
