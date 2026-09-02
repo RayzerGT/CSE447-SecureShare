@@ -44,6 +44,7 @@ from .security import session_manager, two_factor
 # is a functional (not crypto) cross-app call, same pattern as posts/views.py
 # importing social.models.Friendship.
 from moderation.models import AccountState
+from moderation.logging_service import log_event
 
 
 def register(request):
@@ -82,6 +83,7 @@ def login_view(request):
                 password=form.cleaned_data["password"],
             )
             if user is not None and AccountState.is_blocked_for(user):
+                log_event(user, "login_blocked", request=request)
                 messages.error(request, "This account is locked, suspended, or banned. Contact an administrator.")
                 return render(request, "accounts/login.html", {"form": LoginForm()})
 
@@ -89,7 +91,9 @@ def login_view(request):
                 two_fa, _ = TwoFactorSettings.objects.get_or_create(user=user)
                 if two_fa.is_enabled:
                     request.session["pending_2fa_user_id"] = user.pk
-                    two_factor.generate_otp(user)
+                    otp = two_factor.generate_otp(user)
+                    if settings.DEBUG and otp:
+                        messages.info(request, f"Development 2FA code: {otp}")
                     return redirect("accounts:verify_2fa")
 
                 django_login(request, user)
@@ -101,6 +105,7 @@ def login_view(request):
                 # AUDIT LOG HOOK: successful login
                 return redirect("posts:feed")
             # AUDIT LOG HOOK: failed login attempt
+            log_event(None, "login_failed", metadata={"username": form.cleaned_data["username"]}, request=request)
     else:
         form = LoginForm()
     return render(request, "accounts/login.html", {"form": form})
@@ -123,6 +128,7 @@ def verify_2fa(request):
             del request.session["pending_2fa_user_id"]
             django_login(request, user)
             session_manager.issue_session(request, user, device_info=request.META.get("HTTP_USER_AGENT", ""))
+            log_event(user, "two_factor_verified", request=request)
             messages.success(
                 request,
                 f"Logged in. This session will expire in {settings.SESSION_TIMEOUT_MINUTES} minute(s).",
@@ -130,6 +136,7 @@ def verify_2fa(request):
             # AUDIT LOG HOOK: successful 2FA
             return redirect("posts:feed")
         # AUDIT LOG HOOK: 2FA failure
+        log_event(user, "two_factor_failed", request=request)
     else:
         form = TwoFactorForm()
     return render(request, "accounts/verify_2fa.html", {"form": form})
