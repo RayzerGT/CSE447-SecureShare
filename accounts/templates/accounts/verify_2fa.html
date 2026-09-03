@@ -9,8 +9,10 @@
         <div class="auth-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         </div>
-        <h1>Enter your code</h1>
-        <p class="text-muted">We need one more step to confirm it's you.</p>
+        <h1>Security question</h1>
+        <p class="text-muted">One more step to confirm it's you.</p>
+
+        <p style="margin:18px 0 0;font-weight:600;text-align:left">{{ question_text }}</p>
 
         <form method="post" class="stacked-form">
             {% csrf_token %}
@@ -20,7 +22,7 @@
 
         {% if messages %}
             {% for message in messages %}
-                <p class="dev-note" style="margin-top:18px;text-align:left">{{ message }}</p>
+                <p class="text-muted" style="margin-top:14px;text-align:left">{{ message }}</p>
             {% endfor %}
         {% endif %}
     </div>

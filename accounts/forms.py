@@ -1,7 +1,8 @@
 from django import forms
 from django.contrib.auth.models import User
 
-from .models import Profile
+from .models import Profile, SecurityQuestion
+from .security.two_factor import MIN_ANSWER_LENGTH, normalise_answer
 
 class RegistrationForm(forms.ModelForm):
     first_name = forms.CharField(max_length=75)
@@ -36,7 +37,23 @@ class LoginForm(forms.Form):
     password = forms.CharField(widget=forms.PasswordInput)
 
 class TwoFactorForm(forms.Form):
-    code = forms.CharField(max_length=6, label="Verification code")
+    answer = forms.CharField(max_length=128, label="Your answer")
+
+
+class SecurityQuestionForm(forms.Form):
+    question = forms.ChoiceField(choices=SecurityQuestion.choices, label="Security question")
+    answer = forms.CharField(max_length=128, label="Your answer")
+    confirm_answer = forms.CharField(max_length=128, label="Confirm answer")
+
+    def clean(self):
+        cleaned = super().clean()
+        answer = normalise_answer(cleaned.get("answer", ""))
+        confirm = normalise_answer(cleaned.get("confirm_answer", ""))
+        if answer and confirm and answer != confirm:
+            raise forms.ValidationError("The two answers do not match.")
+        if answer and len(answer) < MIN_ANSWER_LENGTH:
+            raise forms.ValidationError(f"Your answer must be at least {MIN_ANSWER_LENGTH} characters.")
+        return cleaned
 
 class ProfileForm(forms.ModelForm):
     class Meta:

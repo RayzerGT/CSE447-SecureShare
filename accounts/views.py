@@ -7,7 +7,7 @@ from django.core.files.base import ContentFile
 from django.db.models import Count, Q
 from django.shortcuts import redirect, render
 
-from .forms import LoginForm, ProfileForm, RegistrationForm, TwoFactorForm
+from .forms import LoginForm, ProfileForm, RegistrationForm, SecurityQuestionForm, TwoFactorForm
 from .security import google_oauth
 
 from posts.models import Post
@@ -95,10 +95,8 @@ def google_login_callback(request):
             messages.error(request, "This account is locked, suspended, or banned. Contact an administrator.")
             return redirect("accounts:login")
 
-        two_fa, _ = TwoFactorSettings.objects.get_or_create(user=user)
-        if two_fa.is_enabled:
+        if two_factor.is_required_for(user):
             request.session["pending_2fa_user_id"] = user.pk
-            two_factor.generate_otp(user)
             return redirect("accounts:verify_2fa")
 
         django_login(request, user)
@@ -131,14 +129,9 @@ def login_view(request):
                 )
 
             if user is not None:
-                if role_of(user) == Role.USER:
-                    two_fa, _ = TwoFactorSettings.objects.get_or_create(user=user)
-                    if two_fa.is_enabled:
-                        request.session["pending_2fa_user_id"] = user.pk
-                        otp = two_factor.generate_otp(user)
-                        if settings.DEBUG and otp:
-                            messages.info(request, f"Development 2FA code: {otp}")
-                        return redirect("accounts:verify_2fa")
+                if role_of(user) == Role.USER and two_factor.is_required_for(user):
+                    request.session["pending_2fa_user_id"] = user.pk
+                    return redirect("accounts:verify_2fa")
 
                 django_login(request, user)
                 session_manager.issue_session(request, user, device_info=request.META.get("HTTP_USER_AGENT", ""))
@@ -169,7 +162,7 @@ def verify_2fa(request):
 
     if request.method == "POST":
         form = TwoFactorForm(request.POST)
-        if form.is_valid() and two_factor.verify_otp(user, form.cleaned_data["code"]):
+        if form.is_valid() and two_factor.verify_answer(user, form.cleaned_data["answer"]):
             del request.session["pending_2fa_user_id"]
             django_login(request, user)
             session_manager.issue_session(request, user, device_info=request.META.get("HTTP_USER_AGENT", ""))
@@ -178,11 +171,16 @@ def verify_2fa(request):
                 request,
                 f"Logged in. This session will expire in {settings.SESSION_TIMEOUT_MINUTES} minute(s).",
             )
-            return redirect("posts:feed")
+            return redirect(home_url_for(user))
         log_event(user, "two_factor_failed", request=request)
+        messages.error(request, "That answer is not correct.")
     else:
         form = TwoFactorForm()
-    return render(request, "accounts/verify_2fa.html", {"form": form})
+    return render(
+        request,
+        "accounts/verify_2fa.html",
+        {"form": form, "question_text": two_factor.question_text_for(user)},
+    )
 
 @login_required
 def logout_view(request):
@@ -247,17 +245,39 @@ def sessions_dashboard(request):
     sessions = ActiveSession.objects.filter(user=request.user).order_by("-last_active_at")
     two_fa, _ = TwoFactorSettings.objects.get_or_create(user=request.user)
 
+    question_form = SecurityQuestionForm()
+
     if request.method == "POST":
         action = request.POST.get("action")
-        if action == "toggle_2fa":
-            two_fa.is_enabled = not two_fa.is_enabled
-            two_fa.save(update_fields=["is_enabled"])
+
+        if action == "enable_2fa":
+            question_form = SecurityQuestionForm(request.POST)
+            if question_form.is_valid():
+                two_factor.set_security_answer(
+                    request.user,
+                    question_form.cleaned_data["question"],
+                    question_form.cleaned_data["answer"],
+                )
+                log_event(request.user, "two_factor_enabled", request=request)
+                messages.success(request, "Two-factor authentication is on. You will be asked this question at every login.")
+                return redirect("accounts:sessions")
+        elif action == "disable_2fa":
+            two_factor.disable(request.user)
+            log_event(request.user, "two_factor_disabled", request=request)
+            messages.info(request, "Two-factor authentication is off.")
+            return redirect("accounts:sessions")
         elif action == "logout_all":
             session_manager.revoke_all_sessions_for_user(request.user)
-        return redirect("accounts:sessions")
+            return redirect("accounts:sessions")
 
+    two_fa.refresh_from_db()
     return render(
         request,
         "accounts/sessions.html",
-        {"sessions": sessions, "two_fa": two_fa, "session_timeout_minutes": settings.SESSION_TIMEOUT_MINUTES},
+        {
+            "sessions": sessions,
+            "two_fa": two_fa,
+            "question_form": question_form,
+            "session_timeout_minutes": settings.SESSION_TIMEOUT_MINUTES,
+        },
     )

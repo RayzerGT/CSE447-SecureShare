@@ -1,77 +1,64 @@
-import logging
-import secrets
-from datetime import datetime, timezone as dt_timezone
+import re
 
-from django.conf import settings
+from django.contrib.auth.hashers import check_password, make_password
 
-from accounts.models import TwoFactorSettings
-from crypto_core.mac.hmac_scratch import compute_mac
-from crypto_core.encryption_service import EncryptionService
+from accounts.models import SecurityQuestion, TwoFactorSettings
 
-logger = logging.getLogger("accounts.security.two_factor")
+MIN_ANSWER_LENGTH = 2
 
-_OTP_DIGITS = 6
-_TIME_STEP_SECONDS = 30
-_ALLOWED_WINDOW_DRIFT = 1
+SECURITY_QUESTIONS = SecurityQuestion.choices
 
-def _get_or_create_secret(user) -> str:
+
+def normalise_answer(answer: str) -> str:
+    return re.sub(r"\s+", " ", (answer or "").strip().lower())
+
+
+def set_security_answer(user, question: str, answer: str) -> TwoFactorSettings:
+    if question not in SecurityQuestion.values:
+        raise ValueError("unknown security question")
+
+    cleaned = normalise_answer(answer)
+    if len(cleaned) < MIN_ANSWER_LENGTH:
+        raise ValueError(f"answer must be at least {MIN_ANSWER_LENGTH} characters")
+
     settings_row, _ = TwoFactorSettings.objects.get_or_create(user=user)
-    if not settings_row.secret:
-        settings_row.secret = EncryptionService.encrypt_profile_data(user, secrets.token_hex(20))
-        settings_row.save(update_fields=["secret"])
-        return EncryptionService.decrypt_profile_data(user, settings_row.secret)
-
-    try:
-        return EncryptionService.decrypt_profile_data(user, settings_row.secret)
-    except (ValueError, UnicodeDecodeError):
-        if len(settings_row.secret) == 40:
-            encrypted_secret = EncryptionService.encrypt_profile_data(user, settings_row.secret)
-            settings_row.secret = encrypted_secret
-            settings_row.save(update_fields=["secret"])
-            return EncryptionService.decrypt_profile_data(user, encrypted_secret)
-        raise ValueError("stored 2FA secret could not be decrypted")
-
-def _time_step(when: datetime = None) -> int:
-    if when is None:
-        when = datetime.now(dt_timezone.utc)
-    return int(when.timestamp()) // _TIME_STEP_SECONDS
-
-def _hotp_code(secret: str, counter: int) -> str:
-    counter_bytes = counter.to_bytes(8, "big")
-    mac = compute_mac(counter_bytes, secret.encode("utf-8"))
-
-    offset = mac[-1] & 0x0F
-    truncated = (
-        ((mac[offset] & 0x7F) << 24)
-        | ((mac[offset + 1] & 0xFF) << 16)
-        | ((mac[offset + 2] & 0xFF) << 8)
-        | (mac[offset + 3] & 0xFF)
+    settings_row.question = question
+    settings_row.answer_hash = make_password(cleaned)
+    settings_row.method = TwoFactorSettings.Method.SECURITY_QUESTION
+    settings_row.is_enabled = True
+    settings_row.secret = ""
+    settings_row.save(
+        update_fields=["question", "answer_hash", "method", "is_enabled", "secret", "updated_at"]
     )
-    code = truncated % (10 ** _OTP_DIGITS)
-    return str(code).zfill(_OTP_DIGITS)
+    return settings_row
 
-def generate_otp(user) -> str:
-    secret = _get_or_create_secret(user)
-    code = _hotp_code(secret, _time_step())
 
-    logger.info("2FA code for user '%s': %s (valid ~%ss)", user.username, code, _TIME_STEP_SECONDS)
-
-    if settings.DEBUG:
-        return code
-    return ""
-
-def verify_otp(user, submitted_code: str) -> bool:
-    if not submitted_code or not submitted_code.isdigit():
-        return False
-
+def disable(user) -> None:
     settings_row = TwoFactorSettings.objects.filter(user=user).first()
-    if not settings_row or not settings_row.secret:
+    if settings_row is None:
+        return
+    settings_row.is_enabled = False
+    settings_row.question = ""
+    settings_row.answer_hash = ""
+    settings_row.save(update_fields=["is_enabled", "question", "answer_hash", "updated_at"])
+
+
+def is_required_for(user) -> bool:
+    settings_row = TwoFactorSettings.objects.filter(user=user).first()
+    return bool(settings_row and settings_row.is_configured)
+
+
+def question_text_for(user) -> str:
+    settings_row = TwoFactorSettings.objects.filter(user=user).first()
+    return settings_row.question_text if settings_row else ""
+
+
+def verify_answer(user, submitted_answer: str) -> bool:
+    settings_row = TwoFactorSettings.objects.filter(user=user).first()
+    if settings_row is None or not settings_row.is_configured:
         return False
 
-    secret = _get_or_create_secret(user)
-    current_step = _time_step()
-    for drift in range(-_ALLOWED_WINDOW_DRIFT, _ALLOWED_WINDOW_DRIFT + 1):
-        expected = _hotp_code(secret, current_step + drift)
-        if secrets.compare_digest(expected, submitted_code):
-            return True
-    return False
+    cleaned = normalise_answer(submitted_answer)
+    if not cleaned:
+        return False
+    return check_password(cleaned, settings_row.answer_hash)

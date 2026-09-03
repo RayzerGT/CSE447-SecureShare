@@ -10,19 +10,39 @@
     <div class="setting-row">
         <div>
             <h2>Two-factor authentication</h2>
-            <p class="text-muted">An extra code at login, on top of your password.</p>
+            <p class="text-muted">A security question at login, on top of your password.</p>
         </div>
         <div class="setting-row__end">
-            <span class="badge {{ two_fa.is_enabled|yesno:"active,revoked" }}">
-                {{ two_fa.is_enabled|yesno:"Enabled,Disabled" }}
+            <span class="badge {{ two_fa.is_configured|yesno:"active,revoked" }}">
+                {{ two_fa.is_configured|yesno:"Enabled,Disabled" }}
             </span>
-            <form method="post" class="inline-form">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="toggle_2fa">
-                <button type="submit" class="secondary">{{ two_fa.is_enabled|yesno:"Turn off,Turn on" }}</button>
-            </form>
         </div>
     </div>
+
+    {% if two_fa.is_configured %}
+        <p class="text-muted" style="margin-top:14px">
+            Your question: <strong>{{ two_fa.question_text }}</strong>
+        </p>
+        <form method="post" class="inline-form" style="margin-top:12px">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="disable_2fa">
+            <button type="submit" class="secondary" data-confirm="Turn off two-factor authentication?">Turn off</button>
+        </form>
+        <p class="text-muted" style="margin-top:16px">Want a different question? Choose one below and save.</p>
+    {% endif %}
+
+    <form method="post" class="stacked-form" style="margin-top:14px">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="enable_2fa">
+        {{ question_form.as_p }}
+        <button type="submit">{{ two_fa.is_configured|yesno:"Update question,Turn on" }}</button>
+    </form>
+
+    <p class="text-muted" style="margin-top:12px">
+        Your answer is hashed and salted before it is stored, exactly like your password,
+        so nobody can read it back out of the database. Answers ignore capitalisation and
+        extra spaces.
+    </p>
 </div>
 
 <div class="card">
