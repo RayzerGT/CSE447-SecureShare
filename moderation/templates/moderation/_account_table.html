@@ -1,10 +1,4 @@
-{% comment %}
-Shared account-status table for the admin panel's user_management() and the
-developer panel's manage_users(). Both post the same actions to their own
-view, which is why the <form> has no action= (it posts to the current URL)
-and both views share apply_account_status_action() in moderation/views.py.
-Expects `users`.
-{% endcomment %}
+
 <div class="card flush">
     <div class="table-scroll">
         <table>

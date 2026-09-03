@@ -1,16 +1,8 @@
-{# ==========================================================================
-   STARTER TEMPLATE — copy this file when building a new page.
-   Rename it, drop it in your app's templates/<app>/ folder, and fill in the
-   blocks. Don't hand-roll your own <html>/<head>/nav — base.html already has
-   the fonts, the role-aware shell and flash messages.
-   See FRONTEND.md in the project root for the full design system reference.
-   ========================================================================== #}
+
 {% extends "base.html" %}
 
 {% block title %}Page Name - SecureShare{% endblock %}
 
-{# Column width: omit for the 935px default, `narrow` (470px) for feeds/lists/
-   forms, `wide` (1200px) for tables and dashboards. #}
 {% block container_class %}narrow{% endblock %}
 
 {% block content %}
@@ -19,25 +11,13 @@
     <p class="text-muted">One line of context under the heading.</p>
 </div>
 
-{# Scaffolding notes go in .dev-note, never in .text-muted - that keeps a
-   "this isn't built yet" marker from reading as real product copy. #}
-<p class="dev-note">
-    TODO(Your Name): what still needs wiring up here.
-</p>
-
-{# .card is the standard panel. Most page body content lives in one. #}
 <div class="card">
     <h2>Section heading</h2>
     <p>Body copy. Use <code>.text-muted</code> for secondary text.</p>
-
-    {# Status labels. Reuse an existing modifier where the meaning matches
-       (active / expired / revoked). #}
+    
     <span class="badge active">Active</span>
     <span class="badge revoked">Banned</span>
-
-    {# Primary -> plain button. Secondary -> .secondary. Destructive ->
-       .danger (text) or .solid-danger (filled). data-confirm is handled by
-       static/js/base.js already. #}
+    
     <div class="btn-row">
         <a href="#" class="btn">Primary action</a>
         <button type="button" class="secondary">Secondary</button>
@@ -45,8 +25,6 @@
     </div>
 </div>
 
-{# People in a list: .card.flush (no padding) + .user-row per person.
-   Always render avatars through the partial so the no-avatar fallback works. #}
 <div class="card flush">
     <div class="list-head">A list of people</div>
     <div class="user-row">
@@ -61,7 +39,6 @@
     </div>
 </div>
 
-{# Forms: .stacked-form styles labels/inputs automatically. #}
 <div class="card">
     <h2>A form</h2>
     <form method="post" class="stacked-form">
@@ -72,7 +49,6 @@
     </form>
 </div>
 
-{# Tables need no classes, but wrap them so they scroll on small screens. #}
 <div class="card flush">
     <div class="list-head">A table</div>
     <div class="table-scroll">
@@ -83,7 +59,6 @@
     </div>
 </div>
 
-{# Use .empty-state for "nothing here yet" instead of a bare <p>. #}
 <div class="card empty-state">
     <h2>Nothing here yet</h2>
     <p>Explain what would show up here and how to get it.</p>

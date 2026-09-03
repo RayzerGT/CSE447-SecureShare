@@ -1,12 +1,7 @@
-"""
-accounts/forms.py
-"""
-
 from django import forms
 from django.contrib.auth.models import User
 
 from .models import Profile
-
 
 class RegistrationForm(forms.ModelForm):
     first_name = forms.CharField(max_length=75)
@@ -23,12 +18,6 @@ class RegistrationForm(forms.ModelForm):
         fields = ["username", "email", "first_name", "last_name"]
 
     def __init__(self, *args, google_signup=False, **kwargs):
-        # google_signup=True means the visitor already authenticated with
-        # Google (accounts/views.py::google_login_callback) and is only
-        # here to finish account creation - see google_oauth.py for why
-        # that's trusted. No local password to collect in that case, and
-        # the email is locked to whatever Google verified so the account
-        # stays reachable via "Sign in with Google" afterwards.
         self.google_signup = google_signup
         super().__init__(*args, **kwargs)
         if google_signup:
@@ -42,15 +31,12 @@ class RegistrationForm(forms.ModelForm):
             raise forms.ValidationError("Passwords do not match.")
         return cleaned
 
-
 class LoginForm(forms.Form):
     username = forms.CharField()
     password = forms.CharField(widget=forms.PasswordInput)
 
-
 class TwoFactorForm(forms.Form):
     code = forms.CharField(max_length=6, label="Verification code")
-
 
 class ProfileForm(forms.ModelForm):
     class Meta:

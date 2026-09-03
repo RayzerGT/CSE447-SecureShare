@@ -1,55 +1,36 @@
-/* ==========================================================================
-   SecureShare — Design System
-   ==========================================================================
-   Instagram-inspired UI for the social side of the app (feed, profile,
-   messages, friends, auth). The admin/developer panels deliberately use the
-   `.console` variant further down so a privileged area never looks like the
-   social site — that visual split reinforces the RBAC wall.
-
-   Don't hardcode colors/fonts in page markup — use the tokens and component
-   classes below. See FRONTEND.md for the full guide + starter template.
-   ========================================================================== */
-
 :root {
-    /* --- surfaces --- */
+    
     --bg: #fafafa;
     --surface: #ffffff;
     --surface-alt: #fafafa;
     --surface-hover: #f2f2f2;
     --input-bg: #fafafa;
-
-    /* --- lines --- */
+    
     --border: #dbdbdb;
     --border-strong: #c7c7c7;
-
-    /* --- text --- */
+    
     --text: #262626;
     --text-secondary: #737373;
     --text-tertiary: #a8a8a8;
     --text-on-accent: #ffffff;
-
-    /* --- accents --- */
+    
     --blue: #0095f6;
     --blue-hover: #1877f2;
     --blue-soft: #e0f1ff;
     --red: #ed4956;
     --green: #2ecc71;
     --amber: #ffb700;
-
-    /* --- brand gradient (stories rings, logo, primary CTA flourish) --- */
+    
     --gradient-brand: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
-
-    /* --- type --- */
+    
     --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --font-brand: "Grand Hotel", "Segoe Script", cursive;
-
-    /* --- shape --- */
+    
     --radius-sm: 4px;
     --radius: 8px;
     --radius-lg: 12px;
     --radius-pill: 999px;
-
-    /* --- layout --- */
+    
     --sidebar-w: 245px;
     --sidebar-w-compact: 73px;
     --feed-w: 470px;
@@ -99,8 +80,6 @@ a:hover { text-decoration: none; }
 
 img { display: block; max-width: 100%; }
 
-/* An author-set `display` beats the UA stylesheet's rule for [hidden], so
-   restore it - the upload preview relies on the hidden attribute. */
 [hidden] { display: none !important; }
 
 h1, h2, h3 { margin: 0; font-weight: 600; }
@@ -116,10 +95,6 @@ h3 { font-size: 0.9rem; }
     padding: 0; margin: -1px; overflow: hidden;
     clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
-
-/* ==========================================================================
-   App shell — left rail (desktop) / bottom tab bar (mobile), Instagram-style
-   ========================================================================== */
 
 .app-nav {
     position: fixed;
@@ -188,7 +163,6 @@ h3 { font-size: 0.9rem; }
 .navlink.is-active { font-weight: 700; }
 .navlink.is-active svg { stroke-width: 2.4; }
 
-/* Privileged entry point — visually distinct from social nav items. */
 .navlink--restricted { color: var(--red); }
 
 .navlink__badge {
@@ -215,7 +189,6 @@ h3 { font-size: 0.9rem; }
 .app-main__inner.narrow { max-width: var(--feed-w); }
 .app-main__inner.wide { max-width: 1200px; }
 
-/* Signed-out pages (login/register/2FA) get a centered, chrome-free shell. */
 .app-main--auth {
     margin-left: 0;
     display: flex;
@@ -226,7 +199,6 @@ h3 { font-size: 0.9rem; }
 
 .app-topbar { display: none; }
 
-/* --- tablet: icon-only rail --- */
 @media (max-width: 1263px) {
     :root { --sidebar-w: var(--sidebar-w-compact); }
     .app-nav { padding: 8px 8px 20px; align-items: center; }
@@ -235,7 +207,6 @@ h3 { font-size: 0.9rem; }
     .navlink { justify-content: center; padding: 12px; }
 }
 
-/* --- mobile: top bar + bottom tab bar --- */
 @media (max-width: 767px) {
     .app-nav {
         top: auto;
@@ -270,10 +241,6 @@ h3 { font-size: 0.9rem; }
     .app-main--auth { padding: 24px 16px; }
 }
 
-/* ==========================================================================
-   Avatars
-   ========================================================================== */
-
 .avatar {
     display: grid;
     place-items: center;
@@ -296,7 +263,6 @@ h3 { font-size: 0.9rem; }
 .avatar--lg { width: 56px; height: 56px; font-size: 1.25rem; }
 .avatar--xl { width: 150px; height: 150px; font-size: 3rem; }
 
-/* Gradient story ring — used on the feed header + story rail. */
 .avatar-ring {
     display: inline-grid;
     place-items: center;
@@ -309,10 +275,6 @@ h3 { font-size: 0.9rem; }
 @media (max-width: 767px) {
     .avatar--xl { width: 86px; height: 86px; font-size: 2rem; }
 }
-
-/* ==========================================================================
-   Buttons
-   ========================================================================== */
 
 button, .btn {
     display: inline-flex;
@@ -334,7 +296,6 @@ button, .btn {
 button:hover, .btn:hover { background: var(--blue-hover); }
 button:disabled, .btn:disabled { opacity: 0.4; cursor: default; }
 
-/* Secondary — the "Following"/"Message" style grey button. */
 button.secondary, .btn.secondary {
     background: var(--surface-hover);
     color: var(--text);
@@ -356,7 +317,6 @@ button.ghost:hover, .btn.ghost:hover { background: none; color: var(--text); }
 
 button.block, .btn.block { width: 100%; }
 
-/* Bare icon button (heart, comment, send…). */
 .iconbtn {
     display: inline-grid;
     place-items: center;
@@ -372,10 +332,6 @@ button.block, .btn.block { width: 100%; }
 .iconbtn svg { width: 24px; height: 24px; stroke-width: 1.7; }
 .iconbtn.is-liked { color: var(--red); }
 .iconbtn.is-liked svg { fill: var(--red); stroke: var(--red); }
-
-/* ==========================================================================
-   Cards / panels
-   ========================================================================== */
 
 .card {
     background: var(--surface);
@@ -397,7 +353,6 @@ button.block, .btn.block { width: 100%; }
     font-weight: 600;
 }
 
-/* Muted developer note ("this is a stub") — must not read as a real UI element. */
 .dev-note {
     display: flex;
     gap: 8px;
@@ -418,10 +373,6 @@ button.block, .btn.block { width: 100%; }
 }
 .empty-state svg { width: 44px; height: 44px; margin-bottom: 14px; stroke-width: 1.2; }
 .empty-state h2 { margin-bottom: 6px; color: var(--text); font-size: 1.375rem; font-weight: 300; }
-
-/* ==========================================================================
-   Feed post card
-   ========================================================================== */
 
 .feed { max-width: var(--feed-w); margin: 0 auto; }
 
@@ -474,7 +425,6 @@ button.block, .btn.block { width: 100%; }
     letter-spacing: 0.02em;
 }
 
-/* Inline "Add a comment…" row pinned to the bottom of a post. */
 .comment-bar {
     display: flex;
     align-items: center;
@@ -496,10 +446,6 @@ button.block, .btn.block { width: 100%; }
 
 .comment { margin: 0 0 6px; font-size: 0.875rem; word-wrap: break-word; }
 .comment__user { font-weight: 600; margin-right: 6px; }
-
-/* ==========================================================================
-   Story rail (friends strip above the feed)
-   ========================================================================== */
 
 .stories {
     display: flex;
@@ -523,10 +469,6 @@ button.block, .btn.block { width: 100%; }
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-
-/* ==========================================================================
-   Profile header + post grid
-   ========================================================================== */
 
 .profile-head {
     display: flex;
@@ -624,10 +566,6 @@ button.block, .btn.block { width: 100%; }
     .post-grid { gap: 2px; }
 }
 
-/* ==========================================================================
-   User rows (search results, friends list, request list)
-   ========================================================================== */
-
 .user-row {
     display: flex;
     align-items: center;
@@ -668,10 +606,6 @@ button.block, .btn.block { width: 100%; }
     color: var(--text-secondary);
     pointer-events: none;
 }
-
-/* ==========================================================================
-   Direct messages
-   ========================================================================== */
 
 .dm {
     display: grid;
@@ -735,8 +669,6 @@ button.block, .btn.block { width: 100%; }
 .bubble-row { display: flex; align-items: flex-end; gap: 8px; margin-top: 10px; }
 .bubble-row.is-mine { flex-direction: row-reverse; }
 
-/* The stack owns the width cap so a photo bubble can't be squeezed narrower
-   than its own image (which would clip it). */
 .bubble-stack {
     display: flex;
     flex-direction: column;
@@ -774,10 +706,6 @@ button.block, .btn.block { width: 100%; }
     .dm { grid-template-columns: 1fr; height: auto; }
     .dm__list { border-right: none; border-bottom: 1px solid var(--border); max-height: 320px; }
 }
-
-/* ==========================================================================
-   Forms
-   ========================================================================== */
 
 .stacked-form { display: flex; flex-direction: column; }
 
@@ -821,7 +749,6 @@ button.block, .btn.block { width: 100%; }
     font-size: 0.75rem;
 }
 
-/* Django's {{ form.as_p }} wraps every field in a <p>. */
 .stacked-form p { margin: 0 0 12px; display: flex; flex-direction: column; }
 .stacked-form p label { margin-top: 0; }
 .stacked-form p.dev-note, .stacked-form p.helptext { display: block; }
@@ -840,7 +767,6 @@ button.block, .btn.block { width: 100%; }
     cursor: pointer;
 }
 
-/* Auth card (login / register / 2FA) */
 .auth-card {
     width: 100%;
     max-width: 350px;
@@ -900,7 +826,6 @@ button.block, .btn.block { width: 100%; }
     background: var(--border);
 }
 
-/* Upload page drop zone */
 .dropzone {
     display: grid;
     place-items: center;
@@ -914,10 +839,6 @@ button.block, .btn.block { width: 100%; }
 }
 .dropzone svg { width: 72px; height: 72px; stroke-width: 0.9; color: var(--text); }
 .dropzone__preview { max-height: 380px; border-radius: var(--radius); object-fit: contain; }
-
-/* ==========================================================================
-   Page headers & list headers
-   ========================================================================== */
 
 .page-head { margin-bottom: 18px; }
 .page-head--split { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -946,10 +867,6 @@ button.block, .btn.block { width: 100%; }
 
 .auth-icon { display: grid; place-items: center; margin-bottom: 12px; }
 .auth-icon svg { width: 56px; height: 56px; stroke-width: 1; }
-
-/* ==========================================================================
-   Post detail — Instagram's media-left / comments-right view
-   ========================================================================== */
 
 .post-view {
     display: grid;
@@ -986,8 +903,7 @@ button.block, .btn.block { width: 100%; }
 .thread-item .post__time { margin-top: 2px; }
 
 @media (max-width: 900px) {
-    /* Stack in Instagram's mobile order: who posted it, the photo, then the
-       actions and conversation. */
+    
     .post-view {
         grid-template-columns: 1fr;
         grid-template-rows: auto auto auto;
@@ -997,10 +913,6 @@ button.block, .btn.block { width: 100%; }
     .post-view__head, .post-view__side { border-left: none; }
     .post-view__media img { max-height: 60vh; }
 }
-
-/* ==========================================================================
-   Create post
-   ========================================================================== */
 
 .create {
     background: var(--surface);
@@ -1027,8 +939,6 @@ button.block, .btn.block { width: 100%; }
     .create__side { border-left: none; border-top: 1px solid var(--border); }
 }
 
-/* The DM composer's photo button wraps Django's file input — keep the native
-   control hidden but still clickable through its label. */
 .dm__composer label.iconbtn { position: relative; overflow: hidden; cursor: pointer; }
 .dm__composer label.iconbtn input[type="file"] {
     position: absolute;
@@ -1040,10 +950,6 @@ button.block, .btn.block { width: 100%; }
 .dm__list .user-row.is-active { background: var(--surface-hover); }
 .dm__list .user-row__name { font-weight: 400; }
 .dm__list .user-row.is-active .user-row__name { font-weight: 600; }
-
-/* ==========================================================================
-   Badges, flash messages, tables
-   ========================================================================== */
 
 .badge {
     display: inline-block;
@@ -1095,14 +1001,6 @@ table tr:hover td { background: var(--surface-hover); }
 
 .table-scroll { overflow-x: auto; }
 
-/* ==========================================================================
-   Console theme — admin & developer panels ONLY
-   ==========================================================================
-   Applied via <body class="console"> from base.html when the signed-in user
-   is an Admin or Developer. Same components, deliberately different skin, so
-   a privileged area is never mistaken for the social site.
-   ========================================================================== */
-
 body.console {
     --bg: #0f1115;
     --surface: #171a21;
@@ -1144,7 +1042,6 @@ body.console .console-tag {
 body.console .page-head { margin-bottom: 20px; }
 body.console .page-head h1 { font-size: 1.5rem; }
 
-/* KPI tiles on the admin dashboard */
 .stat-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -1169,7 +1066,6 @@ body.console .page-head h1 { font-size: 1.5rem; }
 
 .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
 
-/* Report tickets */
 .ticket { border-left: 3px solid var(--border-strong); }
 .ticket__head {
     display: flex;
@@ -1193,7 +1089,6 @@ body.console .page-head h1 { font-size: 1.5rem; }
 .ticket--message { border-left-color: #a855f7; }
 .ticket__media { max-width: 220px; border-radius: var(--radius-sm); margin-top: 8px; }
 
-/* Compact buttons for dense action rows in tables/tickets. */
 button.sm, .btn.sm { padding: 5px 10px; font-size: 0.75rem; margin: 0; }
 
 .cell-user { display: flex; align-items: center; gap: 10px; }
@@ -1215,9 +1110,6 @@ code {
 code.wrap { word-break: break-all; }
 .raw-table td { vertical-align: top; }
 
-/* The portal login renders signed-out, so it can't inherit body.console -
-   pin the console palette onto the page itself so a restricted entry point
-   never looks like the social site's login. */
 .portal-shell {
     --surface: #171a21;
     --surface-hover: #232833;

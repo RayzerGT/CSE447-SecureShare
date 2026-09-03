@@ -4,8 +4,7 @@
 
 {% block content %}
 <div class="feed">
-
-    {# --- friends strip (Instagram's story rail) --- #}
+    
     {% if friends %}
     <div class="stories">
         <a href="{% url 'accounts:profile' %}" class="story">

@@ -1,11 +1,4 @@
-{% comment %}
-Reusable avatar. Falls back to the first letter of the username when the
-user hasn't uploaded one, so no page ever renders a broken image.
 
-    {% include "_avatar.html" with u=post.owner %}            {# 32px default #}
-    {% include "_avatar.html" with u=post.owner size="lg" %}  {# sm|md|lg|xl #}
-    {% include "_avatar.html" with u=request.user ring=1 %}   {# gradient story ring #}
-{% endcomment %}
 {% if ring %}<span class="avatar-ring">{% endif %}
 <span class="avatar{% if size %} avatar--{{ size }}{% endif %}">
     {% if u.profile.avatar %}

@@ -1,38 +1,5 @@
-"""
-crypto_core/mac/hmac_scratch.py
-Assigned to: Mos. Mahabuba Akter Munia (see todo.txt)
-
-REQUIREMENT (CSE447 Project.pdf): "Message Authentication Codes (MAC) such as
-CBC-MAC or HMAC must verify data integrity and detect unauthorized
-modifications."
-
-DESIGN CHOICE (documented per the assignment's "document your choice" rule):
-    - Underlying primitive: a from-scratch SHA-256 implementation
-      (_sha256_scratch below). No `hashlib`, `hmac`, or any other library is
-      used anywhere in this file - the compression function, message
-      schedule, and padding are all implemented by hand from the FIPS 180-4
-      specification, using only plain integer/bitwise arithmetic.
-    - Construction: standard HMAC (RFC 2104), built on top of that from-
-      scratch hash:
-          HMAC(K, m) = H( (K' xor opad) || H( (K' xor ipad) || m ) )
-      where K' is the key padded/hashed to the hash's block size (64 bytes
-      for SHA-256).
-    - `verify_mac` compares tags in constant time (no early-exit on the
-      first differing byte) so timing side-channels can't be used to guess
-      the tag byte-by-byte.
-
-Used by crypto_core/encryption_service.py to tag encrypted posts, DMs, and
-profile data, and to check that tag before decrypting on read.
-"""
-
-# ---------------------------------------------------------------------------
-# From-scratch SHA-256 (FIPS 180-4). No hashlib/hmac used anywhere here.
-# ---------------------------------------------------------------------------
-
 _MASK32 = 0xFFFFFFFF
 
-# First 32 bits of the fractional parts of the cube roots of the first 64
-# primes (the standard SHA-256 round constants).
 _K = [
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -44,21 +11,15 @@ _K = [
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 ]
 
-# First 32 bits of the fractional parts of the square roots of the first 8
-# primes (the standard SHA-256 initial hash values).
 _H_INIT = [
     0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
     0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
 ]
 
-
 def _rotr(x: int, n: int) -> int:
     return ((x >> n) | (x << (32 - n))) & _MASK32
 
-
 def _sha256_scratch(message: bytes) -> bytes:
-    """From-scratch SHA-256. Returns the 32-byte digest."""
-    # --- padding ---
     msg_len_bits = (len(message) * 8) & 0xFFFFFFFFFFFFFFFF
     padded = bytearray(message)
     padded.append(0x80)
@@ -68,7 +29,6 @@ def _sha256_scratch(message: bytes) -> bytes:
 
     h = list(_H_INIT)
 
-    # --- process each 512-bit (64-byte) chunk ---
     for chunk_start in range(0, len(padded), 64):
         chunk = padded[chunk_start:chunk_start + 64]
 
@@ -106,26 +66,15 @@ def _sha256_scratch(message: bytes) -> bytes:
 
     return b"".join(word.to_bytes(4, "big") for word in h)
 
-
-# ---------------------------------------------------------------------------
-# HMAC construction (RFC 2104) on top of the from-scratch hash above.
-# ---------------------------------------------------------------------------
-
-_BLOCK_SIZE = 64  # SHA-256 block size in bytes
+_BLOCK_SIZE = 64
 _DIGEST_SIZE = 32
-
 
 def _normalize_key(key: bytes) -> bytes:
     if len(key) > _BLOCK_SIZE:
         key = _sha256_scratch(key)
     return key + b"\x00" * (_BLOCK_SIZE - len(key))
 
-
 def compute_mac(data: bytes, key: bytes) -> bytes:
-    """
-    Compute an HMAC-SHA256-style tag over `data` under `key`, using the
-    from-scratch primitives above. Returns the 32-byte tag.
-    """
     if isinstance(data, str):
         data = data.encode("utf-8")
     if isinstance(key, str):
@@ -138,12 +87,7 @@ def compute_mac(data: bytes, key: bytes) -> bytes:
     inner = _sha256_scratch(i_key_pad + data)
     return _sha256_scratch(o_key_pad + inner)
 
-
 def verify_mac(data: bytes, key: bytes, mac_tag: bytes) -> bool:
-    """
-    Recompute the tag and compare it to `mac_tag` in constant time (to avoid
-    leaking how many leading bytes matched via a timing side-channel).
-    """
     if isinstance(mac_tag, str):
         mac_tag = bytes.fromhex(mac_tag) if _looks_like_hex(mac_tag) else mac_tag.encode("utf-8")
 
@@ -156,7 +100,6 @@ def verify_mac(data: bytes, key: bytes, mac_tag: bytes) -> bool:
     for x, y in zip(expected, mac_tag):
         diff |= x ^ y
     return diff == 0
-
 
 def _looks_like_hex(s: str) -> bool:
     if len(s) != _DIGEST_SIZE * 2:

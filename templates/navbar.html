@@ -1,11 +1,3 @@
-{% comment %}
-Role-aware app navigation (ties into moderation/permissions.py's
-RoleAccessMiddleware - Razeen). Admin/Developer accounts only ever see their
-own panel's links here, never Feed/Create/Messages/Profile - those pages are
-also server-side blocked for them, this just keeps the UI consistent with
-that. The `.console` body skin (see base.html) reskins this same rail for
-privileged users.
-{% endcomment %}
 
 {% if user.is_authenticated and user.profile.is_admin %}
     {% url 'moderation:dashboard' as home_url %}
@@ -15,7 +7,6 @@ privileged users.
     {% url 'posts:feed' as home_url %}
 {% endif %}
 
-{# --- mobile-only top bar --- #}
 <header class="app-topbar">
     <a href="{{ home_url }}" class="app-nav__wordmark">SecureShare</a>
     {% if user.is_authenticated and not user.profile.is_admin and not user.profile.is_developer %}
@@ -36,7 +27,7 @@ privileged users.
     <div class="app-nav__links">
         {% if user.is_authenticated %}
             {% if user.profile.is_admin %}
-                {# ---------- Admin panel only ---------- #}
+                
                 <a href="{% url 'moderation:dashboard' %}" class="navlink {% if request.path == '/moderation/' %}is-active{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
                     <span>Dashboard</span>
@@ -59,7 +50,7 @@ privileged users.
                 </a>
 
             {% elif user.profile.is_developer %}
-                {# ---------- Developer panel only ---------- #}
+                
                 <a href="{% url 'portal:developer_dashboard' %}" class="navlink {% if '/portal/developer/' in request.path %}is-active{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
                     <span>Raw database</span>
@@ -74,7 +65,7 @@ privileged users.
                 </a>
 
             {% else %}
-                {# ---------- Standard user: the social site ---------- #}
+                
                 <a href="{% url 'posts:feed' %}" class="navlink {% if request.path == '/' %}is-active{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>
                     <span>Home</span>

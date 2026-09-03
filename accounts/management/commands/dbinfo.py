@@ -1,23 +1,7 @@
-"""
-accounts/management/commands/dbinfo.py
-Shared tooling (lives under accounts/ because Django discovers management
-commands from installed apps; it is not account-specific).
-
-    python manage.py dbinfo
-
-Prints which database backend this checkout is currently pointed at, whether
-it can actually connect, and whether any migrations are unapplied. The
-project can run on either a local SQLite file or the shared Aiven MySQL
-server (see DB_ENGINE in settings.py), so "which database am I on right
-now?" is a question worth being able to answer in one command - especially
-before the demonstration.
-"""
-
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
-
 
 class Command(BaseCommand):
     help = "Show which database backend is active, and whether migrations are up to date."
@@ -39,15 +23,13 @@ class Command(BaseCommand):
             self.stdout.write(f"  User:     {config['USER']}")
             self.stdout.write(self.style.WARNING("  Scope:    SHARED - your changes affect the whole team"))
 
-        # Connectivity
         try:
             connection.ensure_connection()
-        except Exception as exc:  # noqa: BLE001 - we want to report any driver/network error verbatim
+        except Exception as exc:
             self.stdout.write(self.style.ERROR(f"\nConnection: FAILED\n  {exc}"))
             return
         self.stdout.write(self.style.SUCCESS("\nConnection: OK"))
 
-        # Unapplied migrations
         executor = MigrationExecutor(connection)
         targets = executor.loader.graph.leaf_nodes()
         plan = executor.migration_plan(targets)

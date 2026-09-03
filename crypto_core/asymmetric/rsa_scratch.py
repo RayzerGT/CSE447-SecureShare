@@ -1,50 +1,3 @@
-"""
-crypto_core/asymmetric/rsa_scratch.py
-Assigned to: Afnan Satter (see todo.txt)
-
-REQUIREMENT (CSE447 Project.pdf): "The system must exclusively use asymmetric
-encryption algorithms... must implement at least two different asymmetric
-encryption algorithms... All encryption algorithms must be implemented from
-scratch. Using built-in encryption functions or methods provided by
-frameworks... is not allowed."
-
-This module is one of the two required asymmetric algorithms (RSA - the
-other, ECC, is Razeen Hassan's, in ecc_scratch.py). Does not use
-`cryptography`, `pycryptodome`, `rsa`, or any hashing/encryption library for
-the core math.
-
-DESIGN
-    - Modular exponentiation: uses Python's built-in three-argument `pow()`.
-      That's arbitrary-precision arithmetic (like `+`/`*`/`%`), not a
-      crypto/encryption library call, so hand-rolling a slower
-      square-and-multiply loop on top of it would just re-implement `pow`
-      with more chances for a subtle bug, for no security benefit.
-    - Primality testing: Miller-Rabin, implemented here from scratch (small
-      trial division first to cheaply reject most composites, then 40
-      Miller-Rabin rounds - overkill for a course project, but the loop is
-      only a few lines either way).
-    - Key generation: two random `key_size_bits // 2`-bit primes p, q;
-      n = p*q; phi = (p-1)(q-1); e = 65537 (the standard choice - low
-      Hamming weight, large enough to resist small-exponent attacks);
-      d = modular inverse of e mod phi via a from-scratch extended
-      Euclidean algorithm.
-    - Padding: PKCS#1 v1.5-style randomized padding
-      (0x00 0x02 <random non-zero bytes> 0x00 <message>) so two encryptions
-      of the same plaintext produce different ciphertext, and so short/
-      structured plaintexts aren't vulnerable to the small-message and
-      malleability pitfalls of textbook RSA (raw m^e mod n). This limits a
-      single block to (key_size_bytes - 11) bytes of plaintext - fine for
-      short fields like profile contact info; a caller with a larger
-      payload should chunk it or use hybrid encryption (see
-      encryption_service.py) rather than growing the key just to fit it.
-
-Default key size is 1024 bits: keygen/encrypt/decrypt run in well under a
-second in pure Python, while still exercising the real math (primality
-testing, modular inverse, modular exponentiation, padding) end to end. This
-is below modern production RSA minimums (2048+) - documented here rather
-than silently assumed.
-"""
-
 import os
 from dataclasses import dataclass
 
@@ -52,15 +5,12 @@ _PUBLIC_EXPONENT = 65537
 _MILLER_RABIN_ROUNDS = 40
 _SMALL_PRIMES = (2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47)
 
-
 @dataclass
 class RSAKeyPair:
-    public_key: tuple  # (e, n)
-    private_key: tuple  # (d, n)
-
+    public_key: tuple
+    private_key: tuple
 
 def _is_probable_prime(n: int, rounds: int = _MILLER_RABIN_ROUNDS) -> bool:
-    """Miller-Rabin primality test, from scratch."""
     if n < 2:
         return False
     for p in _SMALL_PRIMES:
@@ -69,7 +19,6 @@ def _is_probable_prime(n: int, rounds: int = _MILLER_RABIN_ROUNDS) -> bool:
         if n % p == 0:
             return False
 
-    # write n - 1 = 2^r * d with d odd
     r, d = 0, n - 1
     while d % 2 == 0:
         d //= 2
@@ -77,7 +26,7 @@ def _is_probable_prime(n: int, rounds: int = _MILLER_RABIN_ROUNDS) -> bool:
 
     for _ in range(rounds):
         byte_len = (n.bit_length() + 7) // 8
-        a = int.from_bytes(os.urandom(byte_len), "big") % (n - 3) + 2  # a in [2, n-2]
+        a = int.from_bytes(os.urandom(byte_len), "big") % (n - 3) + 2
         x = pow(a, d, n)
         if x == 1 or x == n - 1:
             continue
@@ -89,17 +38,14 @@ def _is_probable_prime(n: int, rounds: int = _MILLER_RABIN_ROUNDS) -> bool:
             return False
     return True
 
-
 def _generate_prime(bits: int) -> int:
     while True:
         candidate = int.from_bytes(os.urandom(bits // 8), "big")
-        candidate |= (1 << (bits - 1)) | 1  # force exact bit length and oddness
+        candidate |= (1 << (bits - 1)) | 1
         if _is_probable_prime(candidate):
             return candidate
 
-
 def _extended_gcd(a: int, b: int) -> tuple:
-    """Returns (gcd, x, y) such that a*x + b*y = gcd."""
     old_r, r = a, b
     old_s, s = 1, 0
     old_t, t = 0, 1
@@ -110,16 +56,13 @@ def _extended_gcd(a: int, b: int) -> tuple:
         old_t, t = t, old_t - quotient * t
     return old_r, old_s, old_t
 
-
 def _mod_inverse(a: int, m: int) -> int:
     gcd, x, _ = _extended_gcd(a, m)
     if gcd != 1:
         raise ValueError("modular inverse does not exist (a and m are not coprime)")
     return x % m
 
-
 def _pkcs1_pad(message: bytes, k: int) -> bytes:
-    """Pad `message` to exactly `k` bytes: 0x00 0x02 <random non-zero PS> 0x00 <message>."""
     max_len = k - 11
     if len(message) > max_len:
         raise ValueError(f"message too long for a {k * 8}-bit key with this padding (max {max_len} bytes)")
@@ -130,16 +73,13 @@ def _pkcs1_pad(message: bytes, k: int) -> bytes:
             ps += b
     return b"\x00\x02" + bytes(ps) + b"\x00" + message
 
-
 def _pkcs1_unpad(padded: bytes) -> bytes:
     if len(padded) < 11 or padded[0:2] != b"\x00\x02":
         raise ValueError("invalid RSA padding")
     separator_index = padded.index(b"\x00", 2)
     return padded[separator_index + 1:]
 
-
 class RSACipher:
-    """From-scratch RSA. See module docstring for the design."""
 
     @staticmethod
     def generate_keypair(key_size_bits: int = 1024) -> RSAKeyPair:
@@ -154,8 +94,6 @@ class RSACipher:
             try:
                 d = _mod_inverse(_PUBLIC_EXPONENT, phi)
             except ValueError:
-                # e=65537 not coprime to phi - astronomically rare for random
-                # primes of this size, but re-roll rather than risk a broken key.
                 continue
             return RSAKeyPair(public_key=(_PUBLIC_EXPONENT, n), private_key=(d, n))
 

@@ -1,24 +1,10 @@
-"""
-moderation/models.py
-Assigned to: Mos. Mahabuba Akter Munia (backs her audit log viewer, user
-management, admin-role management, and reports pages - across both the
-admin panel's user_management() and the developer panel's manage_admins()/
-manage_users() in portal_views.py - see todo.txt)
-"""
-
 from django.conf import settings
 from django.db import models
 
 from messaging.models import Message
 from posts.models import Post
 
-
 class AuditLog(models.Model):
-    """
-    REQUIREMENT (Idea.pdf): "Interface to view searchable system logs,
-    including failed login attempts, 2FA failures, privilege escalation
-    events, key access logs, and content deletions."
-    """
 
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="audit_events"
@@ -37,13 +23,7 @@ class AuditLog(models.Model):
         actor_name = self.actor.username if self.actor else "system"
         return f"AuditLog({actor_name}: {self.action})"
 
-
 class AccountState(models.Model):
-    """
-    REQUIREMENT (Idea.pdf): "Account state controls: Admin can temporarily
-    lock, suspend, or ban user accounts (e.g., following suspicious activity
-    or failed login thresholds)."
-    """
 
     class Status(models.TextChoices):
         ACTIVE = "active", "Active"
@@ -51,16 +31,12 @@ class AccountState(models.Model):
         SUSPENDED = "suspended", "Suspended"
         BANNED = "banned", "Banned"
 
-    # Statuses that block login entirely (checked in accounts/views.py::login_view
-    # see is_blocked_for below).
     BLOCKING_STATUSES = {Status.LOCKED, Status.SUSPENDED, Status.BANNED}
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="account_state")
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.ACTIVE)
     reason = models.CharField(max_length=255, blank=True)
 
-    # A "warning" is a strike that does NOT block login (unlike lock/suspend/
-    # ban) - just a count admins/developers can act on however they see fit.
     warning_count = models.PositiveIntegerField(default=0)
 
     changed_by = models.ForeignKey(
@@ -73,20 +49,10 @@ class AccountState(models.Model):
 
     @classmethod
     def is_blocked_for(cls, user) -> bool:
-        """True if this user's account state should block them from logging in."""
         state = cls.objects.filter(user=user).first()
         return bool(state and state.status in cls.BLOCKING_STATUSES)
 
-
 class Report(models.Model):
-    """
-    REQUIREMENT: "Users can report friends, posts, messages which will be
-    handled by admins" - one report model, exactly one of post/reported_user/
-    message set per row (enforced in the view layer, not a DB constraint,
-    to keep this simple). Reviewed as "tickets" via the admin panel's
-    Reports menu (moderation/views.py::reports_list). Reporting a post also
-    flags it (Post.is_flagged) so it shows in Global Content Moderation too.
-    """
 
     class Kind(models.TextChoices):
         POST = "post", "Post"

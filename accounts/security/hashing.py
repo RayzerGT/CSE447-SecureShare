@@ -1,46 +1,3 @@
-"""
-accounts/security/hashing.py
-
-REQUIREMENT (CSE447 Project.pdf): "Passwords must be hashed and salted before
-storage." All encryption/hashing must be implemented FROM SCRATCH - no
-built-in framework hashing (e.g. Django's PBKDF2/bcrypt/argon2 hashers,
-hashlib convenience wrappers used as a black box, etc.).
-
-DESIGN
-    1. `_sha256` below is a hand-rolled implementation of SHA-256 (FIPS
-       180-4) - message padding, schedule expansion, and the 64-round
-       compression function are all plain Python arithmetic. No `hashlib`
-       import appears anywhere in this file.
-    2. Hashing a password once (even salted) is fast to brute-force on
-       modern hardware, so `_stretch` builds a simple iterated-hash key
-       stretching scheme on top of `_sha256`: it re-hashes
-       (running_digest || password || salt) `iterations` times. This is
-       deliberately NOT a call to `hashlib.pbkdf2_hmac` / bcrypt / argon2 -
-       it's the same "make brute force expensive" idea, built from the
-       primitive above. `_DEFAULT_ITERATIONS` is tuned so a login stays
-       well under a second even with a pure-Python hash loop; a real
-       deployment would push this much higher (or write the hot loop in a
-       compiled extension).
-    3. `generate_salt` uses `os.urandom` - that's an OS entropy source, not
-       a hashing/encryption algorithm, so it's outside the "implement from
-       scratch" requirement (same reasoning the RSA/ECC modules apply to
-       their own randomness needs).
-    4. `FromScratchPasswordHasher` wires `hash_password` / `verify_password`
-       into Django's pluggable hasher interface
-       (`django.contrib.auth.hashers.BasePasswordHasher`) and is registered
-       as the sole entry in `secureshare/settings.py`'s `PASSWORD_HASHERS`.
-       Importing `BasePasswordHasher` is just using Django's plugin
-       *interface* - no built-in hashing algorithm is used through it.
-       Once registered, `User.set_password()` / `authenticate()` /
-       `check_password()` all transparently go through this pipeline; no
-       other file needs to call `hash_password`/`verify_password` directly.
-
-CAVEAT: changing the active hasher does not retroactively rehash any
-password already stored under the old (Django default) hasher - any
-account created before this change (e.g. on the shared Aiven DB) needs to
-re-register or have its password reset.
-"""
-
 import os
 import struct
 
@@ -50,17 +7,9 @@ from django.utils.translation import gettext_noop as _t
 _MASK32 = 0xFFFFFFFF
 
 _SALT_BYTES = 16
-# Pure-Python SHA-256 costs ~0.14-0.3ms/call here (one or two blocks
-# depending on password length), so 1_000 iterations keeps a
-# login/registration hash comfortably under half a second even for longer
-# passwords, while still being ~1_000x more expensive to brute-force than a
-# single unsalted hash. Push this higher if the hot loop ever moves to a
-# compiled extension.
 _DEFAULT_ITERATIONS = 1_000
 _ALGORITHM_TAG = "scratchsha256"
 
-# First 32 bits of the fractional parts of the cube roots of the first 64
-# primes (FIPS 180-4 round constants).
 _K = [
     0x428A2F98, 0x71374491, 0xB5C0FBCF, 0xE9B5DBA5, 0x3956C25B, 0x59F111F1, 0x923F82A4, 0xAB1C5ED5,
     0xD807AA98, 0x12835B01, 0x243185BE, 0x550C7DC3, 0x72BE5D74, 0x80DEB1FE, 0x9BDC06A7, 0xC19BF174,
@@ -72,20 +21,15 @@ _K = [
     0x748F82EE, 0x78A5636F, 0x84C87814, 0x8CC70208, 0x90BEFFFA, 0xA4506CEB, 0xBEF9A3F7, 0xC67178F2,
 ]
 
-# First 32 bits of the fractional parts of the square roots of the first 8
-# primes (FIPS 180-4 initial hash values).
 _H0 = (
     0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A,
     0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19,
 )
 
-
 def _rotr(x: int, n: int) -> int:
     return ((x >> n) | (x << (32 - n))) & _MASK32
 
-
 def _sha256(message: bytes) -> bytes:
-    """From-scratch SHA-256 digest (FIPS 180-4) of `message`."""
     msg_len_bits = len(message) * 8
     padded = message + b"\x80"
     while len(padded) % 64 != 56:
@@ -120,17 +64,13 @@ def _sha256(message: bytes) -> bytes:
 
     return struct.pack(">8I", *h)
 
-
 def _stretch(password: bytes, salt: bytes, iterations: int) -> bytes:
-    """From-scratch iterated-hash key stretching, built on `_sha256`."""
     block = _sha256(salt + password)
     for _ in range(iterations - 1):
         block = _sha256(block + password + salt)
     return block
 
-
 def _constant_time_equals(a: bytes, b: bytes) -> bool:
-    """Manual constant-time comparison (no `hmac.compare_digest`)."""
     if len(a) != len(b):
         return False
     result = 0
@@ -138,24 +78,14 @@ def _constant_time_equals(a: bytes, b: bytes) -> bool:
         result |= x ^ y
     return result == 0
 
-
 def generate_salt() -> str:
-    """Cryptographically random per-user salt, hex-encoded."""
     return os.urandom(_SALT_BYTES).hex()
 
-
 def hash_password(plain_password: str, salt: str, iterations: int = _DEFAULT_ITERATIONS) -> str:
-    """
-    Hash `plain_password` with `salt` using the from-scratch pipeline above.
-    Returns a self-describing string: "algorithm$iterations$salt$digest_hex"
-    (this whole string is what gets stored, e.g. as `User.password`).
-    """
     digest = _stretch(plain_password.encode("utf-8"), bytes.fromhex(salt), iterations)
     return f"{_ALGORITHM_TAG}${iterations}${salt}${digest.hex()}"
 
-
 def verify_password(plain_password: str, salt: str, stored_hash: str) -> bool:
-    """Recompute the hash and compare it to `stored_hash` in constant time."""
     try:
         algorithm, iterations_str, stored_salt, _digest_hex = stored_hash.split("$")
     except ValueError:
@@ -165,15 +95,7 @@ def verify_password(plain_password: str, salt: str, stored_hash: str) -> bool:
     expected = hash_password(plain_password, salt, int(iterations_str))
     return _constant_time_equals(expected.encode("utf-8"), stored_hash.encode("utf-8"))
 
-
 class FromScratchPasswordHasher(BasePasswordHasher):
-    """
-    Adapts `hash_password` / `verify_password` to Django's pluggable
-    password-hasher interface. Registered as the sole entry in
-    `secureshare/settings.py`'s `PASSWORD_HASHERS`, so `User.set_password()`,
-    `authenticate()`, and `check_password()` all go through this from-scratch
-    pipeline transparently.
-    """
 
     algorithm = _ALGORITHM_TAG
 

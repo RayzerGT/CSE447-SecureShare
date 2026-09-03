@@ -1,23 +1,3 @@
-"""
-accounts/management/commands/seed_demo.py
-Shared tooling (lives under accounts/ because Django discovers management
-commands from installed apps; it is not account-specific).
-
-    python manage.py seed_demo
-
-Fills a fresh database with the team's standard accounts plus enough sample
-content to actually exercise the UI (friends, posts, likes, comments, DMs,
-one report of each kind). Without this, a brand-new SQLite file has zero
-users, so you can't even log in to look at anything.
-
-Safe to re-run: everything is get_or_create'd, so it tops up what's missing
-rather than duplicating.
-
-By default this REFUSES to run against the shared MySQL server - seeding the
-database the whole team (and the demonstration) relies on should be a
-deliberate act, so it needs --allow-shared.
-"""
-
 import io
 
 from django.conf import settings
@@ -33,7 +13,6 @@ from posts.encryption import encrypt_and_store
 from posts.models import Post
 from social.models import Comment, FriendRequest, Friendship, Like
 
-# username, password, role, full name
 TEAM = [
     ("Razeen", "1234", Role.DEVELOPER, "Razeen Hassan"),
     ("Afnan", "1234", Role.DEVELOPER, "Afnan Satter"),
@@ -53,9 +32,7 @@ SAMPLE_POSTS = [
     ("bob", (96, 150, 110), "Morning walk, campus side."),
 ]
 
-
 def _image(color):
-    """A small solid-colour JPEG, so the repo needs no binary sample assets."""
     from PIL import Image, ImageDraw
 
     im = Image.new("RGB", (800, 800), color)
@@ -64,7 +41,6 @@ def _image(color):
     buf = io.BytesIO()
     im.save(buf, "JPEG", quality=85)
     return buf.getvalue()
-
 
 class Command(BaseCommand):
     help = "Seed the database with the team's accounts and sample content (for local SQLite development)."
@@ -100,15 +76,11 @@ class Command(BaseCommand):
         if not options["accounts_only"]:
             self.stdout.write("  Users      : alice / bob / carol       password demo12345")
 
-    # -- accounts ---------------------------------------------------------
-
     def _make_user(self, username, password, role, full_name, bio=""):
         user, created = User.objects.get_or_create(
             username=username, defaults={"email": f"{username.lower()}@secureshare.local"}
         )
         if created:
-            # Goes through FromScratchPasswordHasher, same as
-            # accounts/views.py::register() - see accounts/security/hashing.py.
             user.set_password(password)
             user.save()
         profile, _ = Profile.objects.get_or_create(user=user)
@@ -133,8 +105,6 @@ class Command(BaseCommand):
             self.stdout.write(f"  {'created' if created else 'exists '}  {username:<14} {Role.USER}")
         return created_count
 
-    # -- content ----------------------------------------------------------
-
     def _seed_content(self):
         users = {u.username: u for u in User.objects.filter(username__in=[u[0] for u in SAMPLE_USERS])}
         alice, bob, carol = users["alice"], users["bob"], users["carol"]
@@ -144,11 +114,6 @@ class Command(BaseCommand):
         FriendRequest.objects.get_or_create(sender=carol, receiver=bob)
         self.stdout.write("  alice <-> bob are friends; carol has a pending request to bob")
 
-        # Seeded content goes through EncryptionService exactly like content
-        # created in the UI does. Writing the plaintext columns directly (as
-        # this used to) left the demo database full of readable posts and
-        # messages - which would undercut the developer raw-database viewer,
-        # since that page is the proof that data really is encrypted at rest.
         self.stdout.write(self.style.MIGRATE_HEADING("\nPosts (encrypted at rest)"))
         for owner_name, color, caption in SAMPLE_POSTS:
             owner = users[owner_name]
