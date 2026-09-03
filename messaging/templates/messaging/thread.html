@@ -18,12 +18,6 @@
         </header>
 
         <div class="dm__scroll" data-dm-scroll>
-            <p class="dev-note">
-                TODO(Afnan Satter): messages are stored/shown as plaintext in this
-                skeleton - crypto_core encryption + MAC verification (Munia's facade)
-                are not yet wired in.
-            </p>
-
             {% for message in thread_messages %}
             <div class="bubble-row {% if message.sender_id == user.id %}is-mine{% endif %}">
                 {% if message.sender_id != user.id %}
@@ -31,9 +25,9 @@
                 {% endif %}
 
                 <div class="bubble-stack">
-                    {% if message.plaintext_body %}
+                    {% if message.display_body %}
                     <div class="bubble {% if message.sender_id == user.id %}bubble--mine{% endif %}">
-                        {{ message.plaintext_body }}
+                        {{ message.display_body }}
                     </div>
                     {% endif %}
                     {% if message.image %}

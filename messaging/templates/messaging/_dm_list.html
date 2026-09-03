@@ -14,7 +14,7 @@ optional `active_username` to highlight the open conversation.
             <div class="user-row__name">{{ thread.partner.username }}</div>
             <div class="user-row__sub">
                 {% if thread.last.sender_id == user.id %}You: {% endif %}
-                {% if thread.last.plaintext_body %}{{ thread.last.plaintext_body }}{% else %}Sent a photo{% endif %}
+                {% if thread.last.display_preview %}{{ thread.last.display_preview }}{% else %}Sent a photo{% endif %}
                 &middot; {{ thread.last.created_at|timesince }}
             </div>
         </div>
