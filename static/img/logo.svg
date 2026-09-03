@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-labelledby="ssLogoTitle">
+  <title id="ssLogoTitle">SecureShare logo</title>
+  <defs>
+    <linearGradient id="ssBrandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f09433"/>
+      <stop offset="25%" stop-color="#e6683c"/>
+      <stop offset="50%" stop-color="#dc2743"/>
+      <stop offset="75%" stop-color="#cc2366"/>
+      <stop offset="100%" stop-color="#bc1888"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#ssBrandGradient)"/>
+
+  <rect x="20" y="30" width="24" height="19" rx="4" fill="#ffffff"/>
+  <path d="M25 30v-6a7 7 0 0 1 14 0v6" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="32" cy="38.5" r="3" fill="#dc2743"/>
+</svg>

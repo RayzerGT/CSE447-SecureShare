@@ -105,9 +105,8 @@ class Command(BaseCommand):
             username=username, defaults={"email": f"{username.lower()}@secureshare.local"}
         )
         if created:
-            # TODO(Afnan Satter): once accounts/security/hashing.py is wired in,
-            # this should go through the from-scratch hash+salt pipeline, same
-            # as accounts/views.py::register().
+            # Goes through FromScratchPasswordHasher, same as
+            # accounts/views.py::register() - see accounts/security/hashing.py.
             user.set_password(password)
             user.save()
         profile, _ = Profile.objects.get_or_create(user=user)

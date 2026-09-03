@@ -10,8 +10,18 @@ mysqlclient==2.2.8
 Pillow==11.3.0
 python-dotenv==1.2.3
 
+# "Sign in with Google" (accounts/security/google_oauth.py) - just the HTTP
+# client for exchanging the auth code with Google's token endpoint. The ID
+# token that comes back is decoded and its claims (issuer/audience/expiry)
+# checked by hand below; no OAuth/JWT library used.
+requests==2.32.3
+
 # Transitive dependencies, pinned for full reproducibility (pip would resolve
 # these automatically anyway, but pinning avoids any drift between machines).
 asgiref==3.12.1
 sqlparse==0.6.0
 tzdata==2026.3
+certifi==2026.7.22
+charset-normalizer==3.5.1
+idna==3.19
+urllib3==2.7.0

@@ -24,8 +24,24 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.getenv("SECRET_KEY", "insecure-dev-key-change-me")
 DEBUG = os.getenv("DEBUG", "True") == "True"
 
+# Root secret for crypto_core's Key Management Module - wraps/unwraps every
+# user's stored private key. See crypto_core/key_management/master_key.py
+# for the "e:d:n" format and how to generate a stable one. Left unset here
+# (like SECRET_KEY's insecure-dev fallback), an ephemeral one is generated
+# in memory per process if this is empty.
+KMM_MASTER_KEY = os.getenv("KMM_MASTER_KEY", "")
+
+# "Sign in with Google" - see accounts/security/google_oauth.py. All three
+# blank (the default if unset) hides the button on the login page entirely,
+# so this is safe to leave empty on a machine with no Google credentials set up.
+GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
+GOOGLE_OAUTH_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "")
+GOOGLE_OAUTH_REDIRECT_URI = os.getenv("GOOGLE_OAUTH_REDIRECT_URI", "")
+
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
+# Surfaces the dev-only OTP that accounts/security/two_factor.py logs when
+# DEBUG is on, so a 2FA code is visible in the runserver console.
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -160,18 +176,18 @@ else:
 # ---------------------------------------------------------------------------
 # Password hashing
 #
-# NOTE: The project requires passwords to be hashed AND salted using a
-# from-scratch implementation (no framework-provided hashers). Django's
-# default PASSWORD_HASHERS use PBKDF2/bcrypt/argon2 out of the box, which
-# would violate that requirement, so the default is intentionally left as
-# a placeholder here.
+# The project requires passwords to be hashed AND salted using a from-scratch
+# implementation (no framework-provided hashers). FromScratchPasswordHasher
+# (accounts/security/hashing.py) implements SHA-256 and an iterated-hash
+# key-stretching scheme by hand and is the sole entry below, so
+# User.set_password()/authenticate()/check_password() all go through it.
 #
-# TODO(Afnan Satter): implement a custom hasher in
-# accounts/security/hashing.py and register it below, e.g.:
-#   PASSWORD_HASHERS = ["accounts.security.hashing.FromScratchPasswordHasher"]
+# CAVEAT: this does not retroactively rehash passwords already stored under
+# Django's old default hasher - pre-existing accounts (e.g. on the shared
+# Aiven DB) need to re-register or have their password reset.
 # ---------------------------------------------------------------------------
 PASSWORD_HASHERS = [
-    "django.contrib.auth.hashers.PBKDF2PasswordHasher",  # placeholder only - replace per above
+    "accounts.security.hashing.FromScratchPasswordHasher",
 ]
 
 AUTH_PASSWORD_VALIDATORS = [

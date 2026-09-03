@@ -17,8 +17,9 @@ class KeyRecord(models.Model):
 
     public_key = models.TextField(blank=True)
 
-    # TODO(Afnan Satter): this must never hold a raw private key.
-    # Encrypt it (e.g. under a KMM master key) before storing.
+    # RSA-encrypted (in chunks) under the KMM master keypair - see
+    # crypto_core/key_management/kmm.py::_wrap_private_key /
+    # master_key.py. Never holds a raw private key.
     encrypted_private_key = models.TextField(blank=True)
 
     is_active = models.BooleanField(default=True)

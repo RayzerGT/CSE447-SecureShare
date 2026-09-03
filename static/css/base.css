@@ -850,6 +850,12 @@ button.block, .btn.block { width: 100%; }
     border-radius: var(--radius-sm);
     text-align: center;
 }
+.auth-card__logo {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 8px;
+    display: block;
+}
 .auth-card__wordmark {
     font-family: var(--font-brand);
     font-size: 3rem;

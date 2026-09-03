@@ -131,9 +131,8 @@ def manage_admins(request):
         create_form = AdminCreationForm(request.POST)
         if create_form.is_valid():
             new_admin = create_form.save(commit=False)
-            # TODO(Afnan Satter): replace set_password with the from-scratch
-            # hash+salt pipeline (accounts/security/hashing.py) instead of
-            # Django's built-in hasher - same TODO as accounts/views.py::register.
+            # Goes through FromScratchPasswordHasher, same as
+            # accounts/views.py::register() - see accounts/security/hashing.py.
             new_admin.set_password(create_form.cleaned_data["password"])
             new_admin.save()
             Profile.objects.create(user=new_admin, role=Role.ADMIN)
