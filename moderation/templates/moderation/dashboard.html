@@ -8,11 +8,6 @@
     <p class="text-muted">Signed in as {{ user.username }}.</p>
 </div>
 
-<p class="dev-note">
-    TODO(Razeen Hassan): access is currently gated on Django's built-in `is_staff`
-    flag (moderation/permissions.py::admin_required) rather than the finished RBAC core.
-</p>
-
 <div class="stat-grid">
     <div class="stat">
         <div class="stat__value">{{ total_users }}</div>
