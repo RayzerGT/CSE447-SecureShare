@@ -26,8 +26,10 @@ from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand, CommandError
 
 from accounts.models import Profile, Role, TwoFactorSettings
+from crypto_core.encryption_service import EncryptionService
 from messaging.models import Message
 from moderation.models import Report
+from posts.encryption import encrypt_and_store
 from posts.models import Post
 from social.models import Comment, FriendRequest, Friendship, Like
 
@@ -142,28 +144,41 @@ class Command(BaseCommand):
         FriendRequest.objects.get_or_create(sender=carol, receiver=bob)
         self.stdout.write("  alice <-> bob are friends; carol has a pending request to bob")
 
-        self.stdout.write(self.style.MIGRATE_HEADING("\nPosts"))
+        # Seeded content goes through EncryptionService exactly like content
+        # created in the UI does. Writing the plaintext columns directly (as
+        # this used to) left the demo database full of readable posts and
+        # messages - which would undercut the developer raw-database viewer,
+        # since that page is the proof that data really is encrypted at rest.
+        self.stdout.write(self.style.MIGRATE_HEADING("\nPosts (encrypted at rest)"))
         for owner_name, color, caption in SAMPLE_POSTS:
             owner = users[owner_name]
-            if Post.objects.filter(owner=owner, caption=caption).exists():
+            if Post.objects.filter(owner=owner, encrypted_caption__gt="").exists() and Post.objects.filter(
+                owner=owner
+            ).count() >= sum(1 for o, _, _ in SAMPLE_POSTS if o == owner_name):
                 self.stdout.write(f"  exists   {caption}")
                 continue
-            post = Post(owner=owner, caption=caption)
-            post.image.save(f"seed_{owner_name}_{abs(hash(caption)) % 10000}.jpg", ContentFile(_image(color)), save=True)
+            post = Post(owner=owner)
+            encrypt_and_store(post, _image(color), caption)
+            post.save()
             other = bob if owner == alice else alice
             Like.objects.get_or_create(user=other, post=post)
             Comment.objects.get_or_create(user=other, post=post, content="Love this one.")
             self.stdout.write(f"  created  {caption}")
 
-        self.stdout.write(self.style.MIGRATE_HEADING("\nMessages"))
+        self.stdout.write(self.style.MIGRATE_HEADING("\nMessages (encrypted + MAC'd)"))
         if Message.objects.filter(sender=alice, recipient=bob).exists():
             self.stdout.write("  exists   alice <-> bob thread")
         else:
-            Message.objects.create(sender=alice, recipient=bob, plaintext_body="Hey! Did you see the new feed?")
-            Message.objects.create(sender=bob, recipient=alice, plaintext_body="Just looked - looks great.")
-            photo = Message(sender=alice, recipient=bob, plaintext_body="Here's the shot from yesterday.")
-            photo.image.save("seed_dm.jpg", ContentFile(_image((150, 110, 190))), save=True)
-            self.stdout.write("  created  alice <-> bob thread (with a photo)")
+            for sender, recipient, body in [
+                (alice, bob, "Hey! Did you see the new feed?"),
+                (bob, alice, "Just looked - looks great."),
+                (alice, bob, "Here's the shot from yesterday."),
+            ]:
+                ciphertext, mac_tag = EncryptionService.encrypt_message(sender, recipient, body)
+                Message.objects.create(
+                    sender=sender, recipient=recipient, ciphertext=ciphertext, mac_tag=mac_tag
+                )
+            self.stdout.write("  created  alice <-> bob thread")
 
         self.stdout.write(self.style.MIGRATE_HEADING("\nReports (one of each kind, for the admin ticket queue)"))
         post = Post.objects.filter(owner=alice).first()

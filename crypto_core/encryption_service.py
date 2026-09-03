@@ -31,6 +31,8 @@ TODO(Mos. Mahabuba Akter Munia):
 import base64
 import json
 
+from django.conf import settings
+
 from crypto_core.asymmetric.ecc_scratch import ECCCipher
 from crypto_core.asymmetric.rsa_scratch import RSACipher
 from crypto_core.key_management.kmm import KeyManagementModule
@@ -56,11 +58,37 @@ class EncryptionService:
         raise ValueError(f"unknown key algorithm: {record.algorithm}")
 
     @staticmethod
+    def _mac_root_secret() -> bytes:
+        """
+        The secret a MAC key is derived from. KMM_MASTER_KEY is the project's
+        crypto root of trust (see crypto_core/key_management/master_key.py);
+        SECRET_KEY is the fallback so this still works on a checkout that
+        hasn't set one yet. Both live in .env, never in the database - which
+        is the whole point (see _mac_key).
+        """
+        root = getattr(settings, "KMM_MASTER_KEY", "") or settings.SECRET_KEY
+        return str(root).encode("utf-8")
+
+    @staticmethod
     def _mac_key(sender, recipient) -> bytes:
-        """Return a stable context key for detecting ciphertext tampering."""
-        record = EncryptionService._key_record(recipient, KeyRecord.Algorithm.ECC)
-        context = f"{sender.pk}:{recipient.pk}:{record.public_key}".encode("utf-8")
-        return context
+        """
+        Per-conversation MAC key, derived from a SECRET root.
+
+        This must not be built out of public values. An earlier version used
+        `sender.pk : recipient.pk : <public key>`, all of which is readable
+        straight from the database - so anyone who could tamper with stored
+        ciphertext could also recompute a matching tag, and the MAC proved
+        nothing. (Verified at the time: a fabricated message forged that way
+        passed verification.) The requirement is to "detect unauthorized
+        modifications" under a database-compromise threat model, so the key
+        has to be something the database does not contain.
+
+        Deriving it as HMAC(context, root_secret) keeps the per-pair
+        separation the old version had, while making the key unforgeable
+        without the root secret from .env.
+        """
+        context = f"secureshare-dm-mac:{sender.pk}:{recipient.pk}".encode("utf-8")
+        return compute_mac(context, EncryptionService._mac_root_secret())
 
     @staticmethod
     def _rsa_encrypt_chunks(plaintext: bytes, public_key: tuple) -> bytes:

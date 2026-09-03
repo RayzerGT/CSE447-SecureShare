@@ -103,6 +103,13 @@ That single line is what selects SQLite. You can ignore every MYSQL_* line in
 the file - they are only read when DB_ENGINE=mysql, so you do NOT need the
 Aiven credentials to work locally.
 
+IMPORTANT - one more value you DO need: KMM_MASTER_KEY.
+Ask Razeen for the team's value and paste it into your .env. Every private
+key and every integrity tag is derived from it, so if yours differs from
+everyone else's you will not be able to read shared encrypted data, and if
+you leave it blank your own data stops decrypting the moment you restart
+the server.
+
 .env is gitignored. It is your own file and never gets committed.
 
 

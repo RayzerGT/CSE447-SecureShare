@@ -21,7 +21,18 @@ from crypto_core.mac.hmac_scratch import compute_mac, verify_mac
 
 
 def _mac_key(post) -> bytes:
-    return f"post:{post.owner_id}".encode("utf-8")
+    """
+    Per-owner MAC key, derived from a SECRET root.
+
+    This previously returned f"post:{owner_id}" - a value anyone can guess,
+    which meant a MAC tag could be recomputed by whoever tampered with the
+    stored ciphertext, so it proved nothing. Same fix as the DM MAC in
+    crypto_core/encryption_service.py::_mac_key: derive the key from the
+    KMM master secret (which lives in .env, never in the database) so a
+    forged tag is not computable from database contents alone.
+    """
+    context = f"secureshare-post-mac:{post.owner_id}".encode("utf-8")
+    return compute_mac(context, EncryptionService._mac_root_secret())
 
 
 def _mac_payload(image_bytes: bytes, encrypted_caption: str) -> bytes:
