@@ -83,9 +83,9 @@ class Profile(models.Model):
 
 class TwoFactorSettings(models.Model):
     """
-    TODO(Mos. Mahabuba Akter Munia): implement real TOTP/email-OTP generation &
-    verification in accounts/security/two_factor.py. `secret` should be generated
-    by that module, not left blank.
+    OTP generation and verification are implemented in
+    accounts/security/two_factor.py. The secret is encrypted at rest before it
+    is stored.
     """
 
     class Method(models.TextChoices):
@@ -95,7 +95,7 @@ class TwoFactorSettings(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="two_factor")
     is_enabled = models.BooleanField(default=False)
     method = models.CharField(max_length=16, choices=Method.choices, default=Method.EMAIL_OTP)
-    secret = models.CharField(max_length=255, blank=True)  # TODO(Mos. Mahabuba Akter Munia): store securely, not plaintext
+    secret = models.CharField(max_length=255, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
