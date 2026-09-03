@@ -34,36 +34,20 @@ class Profile(models.Model):
     def is_developer(self):
         return self.role == Role.DEVELOPER
 
-class SecurityQuestion(models.TextChoices):
-    FIRST_TEACHER = "first_teacher", "What was the name of your first teacher?"
-    FIRST_PET = "first_pet", "What was the name of your first pet?"
-    BIRTH_CITY = "birth_city", "In which city were you born?"
-    CHILDHOOD_FRIEND = "childhood_friend", "What is the name of your childhood best friend?"
-    PRIMARY_SCHOOL = "primary_school", "What was the name of your primary school?"
-    FAVOURITE_DISH = "favourite_dish", "What is your favourite dish?"
-    MOTHERS_MAIDEN_NAME = "mothers_maiden_name", "What is your mother's maiden name?"
-
-
 class TwoFactorSettings(models.Model):
 
     class Method(models.TextChoices):
-        SECURITY_QUESTION = "security_question", "Security Question"
+        TOTP = "totp", "Authenticator App (TOTP)"
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="two_factor")
     is_enabled = models.BooleanField(default=False)
-    method = models.CharField(max_length=32, choices=Method.choices, default=Method.SECURITY_QUESTION)
-    question = models.CharField(max_length=32, choices=SecurityQuestion.choices, blank=True)
-    answer_hash = models.CharField(max_length=255, blank=True)
+    method = models.CharField(max_length=32, choices=Method.choices, default=Method.TOTP)
     secret = models.CharField(max_length=255, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     @property
     def is_configured(self) -> bool:
-        return bool(self.is_enabled and self.question and self.answer_hash)
-
-    @property
-    def question_text(self) -> str:
-        return SecurityQuestion(self.question).label if self.question else ""
+        return bool(self.is_enabled and self.secret)
 
     def __str__(self):
         return f"2FA({self.user.username}, enabled={self.is_enabled})"

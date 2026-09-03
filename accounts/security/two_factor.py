@@ -1,36 +1,76 @@
-import re
+import base64
+import io
+import os
+from datetime import datetime, timezone as dt_timezone
+from urllib.parse import quote
 
-from django.contrib.auth.hashers import check_password, make_password
+import qrcode
+import qrcode.image.svg
 
-from accounts.models import SecurityQuestion, TwoFactorSettings
+from accounts.models import TwoFactorSettings
+from crypto_core.encryption_service import EncryptionService
+from crypto_core.mac.hmac_scratch import compute_mac
 
-MIN_ANSWER_LENGTH = 2
+OTP_DIGITS = 6
+TIME_STEP_SECONDS = 30
+ALLOWED_WINDOW_DRIFT = 1
+ALGORITHM = "SHA256"
+ISSUER = "SecureShare"
+_SECRET_BYTES = 20
 
-SECURITY_QUESTIONS = SecurityQuestion.choices
+
+def _new_base32_secret() -> str:
+    return base64.b32encode(os.urandom(_SECRET_BYTES)).decode("ascii").rstrip("=")
 
 
-def normalise_answer(answer: str) -> str:
-    return re.sub(r"\s+", " ", (answer or "").strip().lower())
+def _decode_base32(secret: str) -> bytes:
+    padded = secret + "=" * (-len(secret) % 8)
+    return base64.b32decode(padded, casefold=True)
 
 
-def set_security_answer(user, question: str, answer: str) -> TwoFactorSettings:
-    if question not in SecurityQuestion.values:
-        raise ValueError("unknown security question")
+def _time_step(when: datetime = None) -> int:
+    if when is None:
+        when = datetime.now(dt_timezone.utc)
+    return int(when.timestamp()) // TIME_STEP_SECONDS
 
-    cleaned = normalise_answer(answer)
-    if len(cleaned) < MIN_ANSWER_LENGTH:
-        raise ValueError(f"answer must be at least {MIN_ANSWER_LENGTH} characters")
 
-    settings_row, _ = TwoFactorSettings.objects.get_or_create(user=user)
-    settings_row.question = question
-    settings_row.answer_hash = make_password(cleaned)
-    settings_row.method = TwoFactorSettings.Method.SECURITY_QUESTION
-    settings_row.is_enabled = True
-    settings_row.secret = ""
-    settings_row.save(
-        update_fields=["question", "answer_hash", "method", "is_enabled", "secret", "updated_at"]
+def _totp_code(secret: str, counter: int) -> str:
+    mac = compute_mac(counter.to_bytes(8, "big"), _decode_base32(secret))
+    offset = mac[-1] & 0x0F
+    truncated = (
+        ((mac[offset] & 0x7F) << 24)
+        | ((mac[offset + 1] & 0xFF) << 16)
+        | ((mac[offset + 2] & 0xFF) << 8)
+        | (mac[offset + 3] & 0xFF)
     )
-    return settings_row
+    return str(truncated % (10 ** OTP_DIGITS)).zfill(OTP_DIGITS)
+
+
+def _stored_secret(settings_row) -> str:
+    if not settings_row.secret:
+        return ""
+    return EncryptionService.decrypt_profile_data(settings_row.user, settings_row.secret)
+
+
+def begin_enrolment(user) -> str:
+    settings_row, _ = TwoFactorSettings.objects.get_or_create(user=user)
+    secret = _new_base32_secret()
+    settings_row.secret = EncryptionService.encrypt_profile_data(user, secret)
+    settings_row.is_enabled = False
+    settings_row.method = TwoFactorSettings.Method.TOTP
+    settings_row.save(update_fields=["secret", "is_enabled", "method", "updated_at"])
+    return secret
+
+
+def confirm_enrolment(user, submitted_code: str) -> bool:
+    settings_row = TwoFactorSettings.objects.filter(user=user).first()
+    if settings_row is None or not settings_row.secret:
+        return False
+    if not verify_code(user, submitted_code):
+        return False
+    settings_row.is_enabled = True
+    settings_row.save(update_fields=["is_enabled", "updated_at"])
+    return True
 
 
 def disable(user) -> None:
@@ -38,27 +78,71 @@ def disable(user) -> None:
     if settings_row is None:
         return
     settings_row.is_enabled = False
-    settings_row.question = ""
-    settings_row.answer_hash = ""
-    settings_row.save(update_fields=["is_enabled", "question", "answer_hash", "updated_at"])
+    settings_row.secret = ""
+    settings_row.save(update_fields=["is_enabled", "secret", "updated_at"])
+
+
+def is_enrolling(user) -> bool:
+    settings_row = TwoFactorSettings.objects.filter(user=user).first()
+    return bool(settings_row and settings_row.secret and not settings_row.is_enabled)
 
 
 def is_required_for(user) -> bool:
     settings_row = TwoFactorSettings.objects.filter(user=user).first()
-    return bool(settings_row and settings_row.is_configured)
+    return bool(settings_row and settings_row.is_enabled and settings_row.secret)
 
 
-def question_text_for(user) -> str:
+def current_secret(user) -> str:
     settings_row = TwoFactorSettings.objects.filter(user=user).first()
-    return settings_row.question_text if settings_row else ""
+    return _stored_secret(settings_row) if settings_row else ""
 
 
-def verify_answer(user, submitted_answer: str) -> bool:
-    settings_row = TwoFactorSettings.objects.filter(user=user).first()
-    if settings_row is None or not settings_row.is_configured:
+def provisioning_uri(user, secret: str) -> str:
+    label = quote(f"{ISSUER}:{user.username}")
+    return (
+        f"otpauth://totp/{label}"
+        f"?secret={secret}&issuer={quote(ISSUER)}"
+        f"&algorithm={ALGORITHM}&digits={OTP_DIGITS}&period={TIME_STEP_SECONDS}"
+    )
+
+
+def qr_svg(uri: str) -> str:
+    image = qrcode.make(uri, image_factory=qrcode.image.svg.SvgPathImage, box_size=10, border=2)
+    buffer = io.BytesIO()
+    image.save(buffer)
+    return buffer.getvalue().decode("utf-8")
+
+
+def current_code(user) -> str:
+    secret = current_secret(user)
+    return _totp_code(secret, _time_step()) if secret else ""
+
+
+def seconds_remaining() -> int:
+    now = int(datetime.now(dt_timezone.utc).timestamp())
+    return TIME_STEP_SECONDS - (now % TIME_STEP_SECONDS)
+
+
+def verify_code(user, submitted_code: str) -> bool:
+    submitted = (submitted_code or "").strip().replace(" ", "")
+    if not submitted.isdigit() or len(submitted) != OTP_DIGITS:
         return False
 
-    cleaned = normalise_answer(submitted_answer)
-    if not cleaned:
+    settings_row = TwoFactorSettings.objects.filter(user=user).first()
+    if settings_row is None or not settings_row.secret:
         return False
-    return check_password(cleaned, settings_row.answer_hash)
+
+    secret = _stored_secret(settings_row)
+    step = _time_step()
+    for drift in range(-ALLOWED_WINDOW_DRIFT, ALLOWED_WINDOW_DRIFT + 1):
+        expected = _totp_code(secret, step + drift)
+        if len(expected) == len(submitted) and _constant_time_equals(expected, submitted):
+            return True
+    return False
+
+
+def _constant_time_equals(a: str, b: str) -> bool:
+    diff = 0
+    for x, y in zip(a.encode(), b.encode()):
+        diff |= x ^ y
+    return diff == 0

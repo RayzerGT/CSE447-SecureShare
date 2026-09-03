@@ -6,8 +6,9 @@ from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.db.models import Count, Q
 from django.shortcuts import redirect, render
+from django.utils.safestring import mark_safe
 
-from .forms import LoginForm, ProfileForm, RegistrationForm, SecurityQuestionForm, TwoFactorForm
+from .forms import LoginForm, ProfileForm, RegistrationForm, TwoFactorForm
 from .security import google_oauth
 
 from posts.models import Post
@@ -162,7 +163,7 @@ def verify_2fa(request):
 
     if request.method == "POST":
         form = TwoFactorForm(request.POST)
-        if form.is_valid() and two_factor.verify_answer(user, form.cleaned_data["answer"]):
+        if form.is_valid() and two_factor.verify_code(user, form.cleaned_data["code"]):
             del request.session["pending_2fa_user_id"]
             django_login(request, user)
             session_manager.issue_session(request, user, device_info=request.META.get("HTTP_USER_AGENT", ""))
@@ -173,13 +174,13 @@ def verify_2fa(request):
             )
             return redirect(home_url_for(user))
         log_event(user, "two_factor_failed", request=request)
-        messages.error(request, "That answer is not correct.")
+        messages.error(request, "That code is not correct or has expired.")
     else:
         form = TwoFactorForm()
     return render(
         request,
         "accounts/verify_2fa.html",
-        {"form": form, "question_text": two_factor.question_text_for(user)},
+        {"form": form},
     )
 
 @login_required
@@ -245,39 +246,47 @@ def sessions_dashboard(request):
     sessions = ActiveSession.objects.filter(user=request.user).order_by("-last_active_at")
     two_fa, _ = TwoFactorSettings.objects.get_or_create(user=request.user)
 
-    question_form = SecurityQuestionForm()
-
     if request.method == "POST":
         action = request.POST.get("action")
 
-        if action == "enable_2fa":
-            question_form = SecurityQuestionForm(request.POST)
-            if question_form.is_valid():
-                two_factor.set_security_answer(
-                    request.user,
-                    question_form.cleaned_data["question"],
-                    question_form.cleaned_data["answer"],
-                )
+        if action == "begin_2fa":
+            two_factor.begin_enrolment(request.user)
+            return redirect("accounts:sessions")
+        elif action == "confirm_2fa":
+            if two_factor.confirm_enrolment(request.user, request.POST.get("code", "")):
                 log_event(request.user, "two_factor_enabled", request=request)
-                messages.success(request, "Two-factor authentication is on. You will be asked this question at every login.")
-                return redirect("accounts:sessions")
-        elif action == "disable_2fa":
+                messages.success(request, "Two-factor authentication is on. Your app will supply a code at every login.")
+            else:
+                messages.error(request, "That code is not correct. Check your authenticator app and try again.")
+            return redirect("accounts:sessions")
+        elif action == "cancel_2fa" or action == "disable_2fa":
+            was_enabled = two_fa.is_configured
             two_factor.disable(request.user)
-            log_event(request.user, "two_factor_disabled", request=request)
-            messages.info(request, "Two-factor authentication is off.")
+            if was_enabled:
+                log_event(request.user, "two_factor_disabled", request=request)
+                messages.info(request, "Two-factor authentication is off.")
             return redirect("accounts:sessions")
         elif action == "logout_all":
             session_manager.revoke_all_sessions_for_user(request.user)
             return redirect("accounts:sessions")
 
     two_fa.refresh_from_db()
+    enrolment = None
+    if two_factor.is_enrolling(request.user):
+        secret = two_factor.current_secret(request.user)
+        enrolment = {
+            "secret": secret,
+            "qr_svg": mark_safe(two_factor.qr_svg(two_factor.provisioning_uri(request.user, secret))),
+            "algorithm": two_factor.ALGORITHM,
+        }
+
     return render(
         request,
         "accounts/sessions.html",
         {
             "sessions": sessions,
             "two_fa": two_fa,
-            "question_form": question_form,
+            "enrolment": enrolment,
             "session_timeout_minutes": settings.SESSION_TIMEOUT_MINUTES,
         },
     )
