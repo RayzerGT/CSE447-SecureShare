@@ -15,7 +15,7 @@ class RegistrationForm(forms.ModelForm):
     confirm_password = forms.CharField(widget=forms.PasswordInput)
     contact_info = forms.CharField(
         required=False,
-        help_text="Stored encrypted at rest (TODO(Mos. Mahabuba Akter Munia): crypto_core wiring).",
+        help_text="Stored encrypted at rest.",
     )
 
     class Meta:

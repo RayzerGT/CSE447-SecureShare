@@ -47,6 +47,7 @@ from .security import session_manager, two_factor
 # importing social.models.Friendship.
 from moderation.models import AccountState
 from moderation.logging_service import log_event
+from crypto_core.encryption_service import EncryptionService
 
 # The RBAC core decides where each role lands after the single shared login.
 from moderation.permissions import home_url_for, role_of
@@ -85,13 +86,14 @@ def register(request):
                 user.set_password(form.cleaned_data["password"])
             user.save()
 
-            # TODO(Mos. Mahabuba Akter Munia): encrypt contact_info via
-            # crypto_core.encryption_service before storing it here.
             full_name = f"{form.cleaned_data['first_name']} {form.cleaned_data['last_name']}".strip()
+            contact_info = form.cleaned_data.get("contact_info", "").strip()
             profile = Profile.objects.create(
                 user=user,
                 full_name=full_name,
-                encrypted_contact_info=form.cleaned_data.get("contact_info", ""),
+                encrypted_contact_info=(
+                    EncryptionService.encrypt_profile_data(user, contact_info) if contact_info else ""
+                ),
             )
             TwoFactorSettings.objects.create(user=user)
 

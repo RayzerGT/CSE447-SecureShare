@@ -49,11 +49,6 @@ def developer_dashboard(request):
     real, this page's output IS the demo: passwords should render as hash
     strings, encrypted_contact_info as ciphertext, not plaintext.
 
-    TODO(Mos. Mahabuba Akter Munia):
-        Extend this to show raw rows from other encrypted tables as they get
-        built (crypto_core.KeyRecord, messaging.Message.ciphertext, private
-        posts' encrypted_caption/encrypted_image_blob) so the demo covers
-        every place data is supposed to be encrypted at rest, not just users.
     """
     users = User.objects.select_related("profile").all()
     return render(
