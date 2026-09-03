@@ -14,12 +14,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from posts.models import Post
 from moderation.logging_service import log_event
+from moderation.permissions import Permission, has_permission
 
 from .models import Comment, Friendship, FriendRequest, Like
-
-# TODO(Razeen Hassan): moderation.permissions has the RBAC core - import
-# role_required/is_admin from there once it exists, instead of the naive
-# owner-or-staff check below.
 User = get_user_model()
 
 
@@ -51,15 +48,13 @@ def delete_comment(request, comment_id):
     """
     REQUIREMENT: "Admin users can delete inappropriate comments using their
     elevated privileges (RBAC)."
-    TODO(Mos. Mahabuba Akter Munia): replace the naive owner-or-staff check
-    below with the real RBAC decision from moderation/permissions.py
-    (Razeen Hassan's), and log the moderation action via
-    moderation.logging_service.log_event.
+    Comment owners may remove their own comments; moderators need the
+    centralized content-moderation permission.
     """
     comment = get_object_or_404(Comment, pk=comment_id)
     is_owner = comment.user_id == request.user.id
-    is_admin = getattr(getattr(request.user, "profile", None), "is_admin", False)  # TODO(Mos. Mahabuba Akter Munia): use RBAC core instead
-    if is_owner or is_admin:
+    can_moderate = has_permission(request.user, Permission.MODERATE_CONTENT)
+    if is_owner or can_moderate:
         comment.is_deleted = True
         comment.save(update_fields=["is_deleted"])
         log_event(request.user, "comment_deleted", target=comment, request=request)
