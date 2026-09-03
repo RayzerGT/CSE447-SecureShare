@@ -4,7 +4,7 @@
 {% block content %}
 <div class="post-view">
     <div class="post-view__media">
-        {% if post.image %}<img src="{{ post.image.url }}" alt="Post by {{ post.owner.username }}">{% endif %}
+        {% if post.display_image %}<img src="{{ post.display_image }}" alt="Post by {{ post.owner.username }}">{% endif %}
     </div>
 
     <header class="post__head post-view__head">
@@ -23,12 +23,12 @@
 
     <aside class="post-view__side">
         <div class="post-view__scroll">
-            {% if post.caption %}
+            {% if post.display_caption %}
             <div class="thread-item">
                 {% include "_avatar.html" with u=post.owner %}
                 <div>
                     <p class="comment">
-                        <a href="{% url 'accounts:profile_detail' post.owner.username %}" class="comment__user">{{ post.owner.username }}</a>{{ post.caption }}
+                        <a href="{% url 'accounts:profile_detail' post.owner.username %}" class="comment__user">{{ post.owner.username }}</a>{{ post.display_caption }}
                     </p>
                     <time class="post__time">{{ post.created_at|timesince }} ago</time>
                 </div>
@@ -46,7 +46,7 @@
                 </div>
             </div>
             {% empty %}
-                {% if not post.caption %}
+                {% if not post.display_caption %}
                 <div class="empty-state">
                     <h2>No comments yet</h2>
                     <p>Start the conversation.</p>

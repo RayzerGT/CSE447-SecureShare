@@ -16,13 +16,22 @@ from django.contrib.auth.models import User
 from django.db.models import Count, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+import base64
+import mimetypes
 
 from social.models import Friendship, Like
 
 from .forms import PostForm
 from .models import Post
+from .encryption import decrypt_for_display, encrypt_and_store
 
-# TODO(Mos. Mahabuba Akter Munia): from .encryption import encrypt_and_store, decrypt_for_display
+
+def _decrypt_post_for_template(post):
+    image_bytes, caption = decrypt_for_display(post)
+    content_type = mimetypes.guess_type(post.image.name if post.image else "")[0] or "application/octet-stream"
+    post.display_image = f"data:{content_type};base64,{base64.b64encode(image_bytes).decode('ascii')}"
+    post.display_caption = caption
+    return post
 
 
 @login_required
@@ -38,6 +47,8 @@ def feed(request):
             comment_count=Count("comments", filter=Q(comments__is_deleted=False), distinct=True),
         )
     )
+    for post in posts:
+        _decrypt_post_for_template(post)
 
     context = {
         "posts": posts,
@@ -59,11 +70,14 @@ def upload(request):
         if form.is_valid():
             post = form.save(commit=False)
             post.owner = request.user
-
-            # TODO(Mos. Mahabuba Akter Munia): call encrypt_and_store(post,
-            # image_bytes, caption) here instead of saving the plaintext
-            # image/caption directly.
+            uploaded_image = form.cleaned_data["image"]
+            image_bytes = uploaded_image.read()
+            encrypt_and_store(post, image_bytes, form.cleaned_data["caption"])
             post.save()
+            image_name = post.image.name
+            post.image.delete(save=False)
+            post.image.name = image_name
+            post.save(update_fields=["image", "caption", "encrypted_image_blob", "encrypted_caption", "mac_tag"])
 
             return redirect("posts:feed")
     else:
@@ -78,8 +92,7 @@ def detail(request, post_id):
     if post.owner_id != request.user.id and not Friendship.are_friends(request.user, post.owner):
         raise Http404("Post not found or not visible to you.")
 
-    # TODO(Mos. Mahabuba Akter Munia): call decrypt_for_display(post) to get
-    # the plaintext image/caption for rendering.
+    _decrypt_post_for_template(post)
     context = {
         "post": post,
         "comments": post.comments.filter(is_deleted=False).select_related("user", "user__profile"),
@@ -95,8 +108,16 @@ def edit(request, post_id):
     if request.method == "POST":
         form = PostForm(request.POST, request.FILES, instance=post)
         if form.is_valid():
-            # TODO(Mos. Mahabuba Akter Munia): re-encrypt on edit if needed.
-            form.save()
+            old_image, _ = decrypt_for_display(post)
+            uploaded_image = form.cleaned_data.get("image")
+            image_bytes = uploaded_image.read() if uploaded_image else old_image
+            encrypt_and_store(post, image_bytes, form.cleaned_data["caption"])
+            post.save(update_fields=["caption", "encrypted_image_blob", "encrypted_caption", "mac_tag"])
+            if uploaded_image:
+                image_name = uploaded_image.name
+                post.image.delete(save=False)
+                post.image.name = image_name
+                post.save(update_fields=["image"])
             return redirect("posts:detail", post_id=post.id)
     else:
         form = PostForm(instance=post)

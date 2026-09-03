@@ -36,9 +36,9 @@
             </div>
         </header>
 
-        {% if post.image %}
+        {% if post.display_image %}
         <a href="{% url 'posts:detail' post.id %}" class="post__media">
-            <img src="{{ post.image.url }}" alt="Post by {{ post.owner.username }}">
+            <img src="{{ post.display_image }}" alt="Post by {{ post.owner.username }}">
         </a>
         {% endif %}
 
@@ -63,9 +63,9 @@
         <div class="post__body">
             <p class="post__likes">{{ post.like_count }} like{{ post.like_count|pluralize }}</p>
 
-            {% if post.caption %}
+            {% if post.display_caption %}
             <p class="post__caption">
-                <a href="{% url 'accounts:profile_detail' post.owner.username %}" class="post__user">{{ post.owner.username }}</a>{{ post.caption }}
+                <a href="{% url 'accounts:profile_detail' post.owner.username %}" class="post__user">{{ post.owner.username }}</a>{{ post.display_caption }}
             </p>
             {% endif %}
 
