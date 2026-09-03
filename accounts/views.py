@@ -38,7 +38,7 @@ from .security import google_oauth
 # social.models.Friendship.
 from posts.models import Post
 from social.models import FriendRequest, Friendship
-from .models import ActiveSession, Profile, TwoFactorSettings
+from .models import ActiveSession, Profile, Role, TwoFactorSettings
 from .security import session_manager, two_factor
 
 # TODO(Razeen Hassan): moderation.models.AccountState.is_blocked_for() lives
@@ -47,6 +47,9 @@ from .security import session_manager, two_factor
 # importing social.models.Friendship.
 from moderation.models import AccountState
 from moderation.logging_service import log_event
+
+# The RBAC core decides where each role lands after the single shared login.
+from moderation.permissions import home_url_for, role_of
 
 
 def register(request):
@@ -183,13 +186,17 @@ def login_view(request):
                 )
 
             if user is not None:
-                two_fa, _ = TwoFactorSettings.objects.get_or_create(user=user)
-                if two_fa.is_enabled:
-                    request.session["pending_2fa_user_id"] = user.pk
-                    otp = two_factor.generate_otp(user)
-                    if settings.DEBUG and otp:
-                        messages.info(request, f"Development 2FA code: {otp}")
-                    return redirect("accounts:verify_2fa")
+                # 2FA applies to Standard Users only. Admin and Developer
+                # accounts skip it (project decision) - they are routed
+                # straight to their own panel below.
+                if role_of(user) == Role.USER:
+                    two_fa, _ = TwoFactorSettings.objects.get_or_create(user=user)
+                    if two_fa.is_enabled:
+                        request.session["pending_2fa_user_id"] = user.pk
+                        otp = two_factor.generate_otp(user)
+                        if settings.DEBUG and otp:
+                            messages.info(request, f"Development 2FA code: {otp}")
+                        return redirect("accounts:verify_2fa")
 
                 django_login(request, user)
                 session_manager.issue_session(request, user, device_info=request.META.get("HTTP_USER_AGENT", ""))
@@ -198,7 +205,7 @@ def login_view(request):
                     f"Logged in. This session will expire in {settings.SESSION_TIMEOUT_MINUTES} minute(s).",
                 )
                 # AUDIT LOG HOOK: successful login
-                return redirect("posts:feed")
+                return redirect(home_url_for(user))
             # AUDIT LOG HOOK: failed login attempt
             log_event(None, "login_failed", metadata={"username": form.cleaned_data["username"]}, request=request)
     else:

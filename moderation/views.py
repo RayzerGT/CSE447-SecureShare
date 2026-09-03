@@ -5,8 +5,8 @@ Split ownership - see todo.txt:
     - apply_account_status_action(), audit_logs(), user_management(),
       content_moderation(), submit_report(), reports_list()               -> Mos. Mahabuba Akter Munia
 
-TODO(Razeen Hassan): replace @admin_required (currently is_staff-based) with
-the finished RBAC core once moderation/permissions.py is implemented for real.
+@admin_required here now resolves through the finished RBAC matrix in
+moderation/permissions.py (Profile.role based) - not Django's is_staff flag.
 
 Portal login (Razeen), the developer raw-DB viewer, and the manage_admins()/
 manage_users() developer-panel menus (Munia) all live in portal_views.py,

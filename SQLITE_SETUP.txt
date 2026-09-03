@@ -131,16 +131,19 @@ creating duplicates.
 
 Accounts it creates:
 
-    LOGIN PAGE                    USERNAME                      PASSWORD
+    ROLE                          USERNAME                      PASSWORD
     ---------------------------------------------------------------------
-    /accounts/login/              alice, bob, carol             demo12345
-    /portal/login/  (Developer)   Razeen, Afnan, Munia          1234
-    /portal/login/  (Admin)       razeen_admin                  123
+    Standard User                 alice, bob, carol             demo12345
+    Developer                     Razeen, Afnan, Munia          1234
+    Admin                         razeen_admin                  123
 
-Note there are two separate login pages. Regular users log in at
-/accounts/login/. Admin and Developer accounts log in at /portal/login/ and
-have no access to the social site at all - that separation is deliberate
-(see the HIERARCHY section in todo.txt).
+    Everyone logs in at the SAME page: /accounts/login/
+
+There is one login page for everybody. Your account's single role decides
+where you land after signing in and what you may do - Standard Users get the
+social site, Admins the admin panel, Developers the developer panel. Admin
+and Developer accounts have no access to the social site at all; that
+separation is deliberate (see the HIERARCHY section in todo.txt).
 
 
 ================================================================================
@@ -156,8 +159,8 @@ Log in as alice / demo12345. You should land on the feed and see three posts.
 Stop the server with Ctrl+C.
 
 Try these too, to confirm everything works:
-    - /portal/login/ as razeen_admin / 123          -> admin panel + reports
-    - /portal/login/ as Razeen / 1234               -> developer raw-DB viewer
+    - log in as razeen_admin / 123                  -> admin panel + reports
+    - log in as Razeen / 1234                       -> developer raw-DB viewer
 
 
 ================================================================================

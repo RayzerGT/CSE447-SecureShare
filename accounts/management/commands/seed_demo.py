@@ -92,7 +92,7 @@ class Command(BaseCommand):
             self._seed_content()
 
         self.stdout.write(self.style.SUCCESS(f"\nSeed complete ({created_users} new account(s))."))
-        self.stdout.write("\nLog in at /accounts/login/ (standard users) or /portal/login/ (admin & developer):")
+        self.stdout.write("\nOne login page for everyone - /accounts/login/ - your role decides where you land:")
         self.stdout.write("  Developers : Razeen / Afnan / Munia    password 1234")
         self.stdout.write("  Admin      : razeen_admin              password 123")
         if not options["accounts_only"]:

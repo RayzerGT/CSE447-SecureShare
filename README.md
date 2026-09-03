@@ -53,7 +53,7 @@ expiring on its own.
 The account security dashboard (`/accounts/sessions/`) lists each session's
 expiry time and live status (Active / Expired / Revoked).
 
-## RBAC: admin & developer portal
+## RBAC: roles, permissions, and the single login
 
 Three roles (`accounts.models.Role`): Standard User, Admin, and Developer -
 hierarchy Developer > Admin > User, but **not** in the sense of "higher
@@ -82,17 +82,20 @@ blocked from the feed/upload/messaging and the admin panel; and a crafted
 request to ban an Admin account through the Admin's own user-management
 endpoint was confirmed to 404 rather than silently succeed.
 
-Admin and Developer are meant to be separate privilege tiers, neither
-implying the other — **but right now `Profile.role` is a single field, so
-one account can only hold one role at a time.** Promoting someone to Admin
-overwrites an existing Developer designation and vice versa. See the
-`KNOWN LIMITATION` TODO on `accounts.models.Role` if the team needs one
-person to genuinely hold both.
+Admin and Developer are separate privilege tiers, neither implying the
+other. **Each account holds exactly one role, by design** — an account is a
+Standard User, an Admin, or a Developer, and stays that one thing. Someone
+who needs two sets of powers gets two accounts. That single-role rule is
+what makes one shared login page possible (below).
 
-- **`/portal/login/`** — a separate login page for Admins and Developers,
-  distinct from the regular `/accounts/login/` everyone else uses. Same
-  credentials (there's only one User table), but on success it checks role
-  and routes accordingly instead of sending you to the normal feed.
+- **One login page — `/accounts/login/`** — used by every account,
+  whatever its role. There is no separate admin/developer portal login.
+  On success, the account's single role decides where it lands
+  (`moderation.permissions.home_url_for`). Sharing the page does not widen
+  anyone's access: the permission matrix and `RoleAccessMiddleware` still
+  govern what each role can reach.
+- **2FA** applies to Standard Users only; Admin and Developer accounts
+  skip it and go straight to their panel.
 - **Admins** land on `/moderation/` — dashboard (total/banned/suspended
   user counts, active sessions, pending reports), user management
   (lock/suspend/ban Standard Users only), content moderation, and a

@@ -95,29 +95,60 @@ in accounts/.
    locked/suspended/banned accounts via moderation.models.AccountState.
    is_blocked_for() before the 2FA step.
 
-2. accounts/security/session_manager.py
-   - Currently rides on Django's default signed session cookie -- swap for a
-     custom/from-scratch short-lived token scheme if the assignment requires
-     it (see the "Secure Session Management" requirement in the official
-     project requirements document).
-   - Add session-hijacking protections beyond what Django gives for free
-     (e.g. binding a session to the issuing IP/user-agent and rejecting
-     mismatches).
-   - Session Revocation & Emergency Controls (admin-triggered, wired into
-     moderation/views.py::user_management, not just the self-service "log
-     out all devices" button that already works) is yours too, since it's
-     still fundamentally session management.
+2. accounts/security/session_manager.py -- DONE. Four rules, all enforced
+   server-side by SecureSessionMiddleware on every authenticated request:
+     1. ABSOLUTE TIMEOUT - dies SESSION_TIMEOUT_MINUTES after login,
+        regardless of activity (SESSION_SAVE_EVERY_REQUEST=False, so being
+        active cannot extend it).
+     2. DEVICE BINDING - session pinned to the browser (User-Agent) and IP
+        that created it; a replayed cookie from anywhere else gets 403.
+        This is the anti-hijacking rule. IP pinning can be switched off on
+        its own via SESSION_BIND_IP if a flaky network causes false
+        rejections; browser pinning stays.
+     3. REVOCATION - revoking now deletes the underlying django_session row,
+        not just a DB flag, so it takes effect on the very next request.
+        Covers both self-service "log out everywhere" and admin/developer
+        emergency revocation.
+     4. FIXATION DEFENCE - session key rotates at login (verified: the
+        pre-login cookie is not the post-login one).
+   DESIGN DECISION: no custom from-scratch token scheme. Django's cookie is
+   already an opaque random key, HttpOnly + SameSite=Lax (+ Secure when
+   configured), with the real state server-side where we can expire and
+   revoke it. Hand-rolling a token format would add bugs, not safety - the
+   project's from-scratch rule is about ENCRYPTION ALGORITHMS, not cookie
+   plumbing. Kept deliberately simple.
+   SUBTLETY worth knowing for the demo: on a device mismatch the request is
+   refused (403) but the session is NOT revoked. Revoking would log out the
+   legitimate owner too - since attacker and victim share one session key -
+   handing an attacker a reliable way to kick the victim off at will.
+   Refusing without revoking blocks the attacker and leaves the real user
+   working; verified both ways.
 
-3. moderation/permissions.py -- the RBAC core: the actual role-based
-   permission matrix (which roles can do what), `admin_required` /
-   `developer_required` / `has_permission` / `RoleAccessMiddleware`.
-   Currently placeholders (admin_required checks is_staff,
-   developer_required checks is_superuser, has_permission always grants,
-   RoleAccessMiddleware's prefix-list approach should probably be driven
-   by the real permission matrix too once it exists). Other apps
-   (social/views.py, moderation/views.py itself) should call into this
-   rather than re-implementing role checks inline. NOTE: post visibility is
-   NOT part of this - posts are simply friends-only, no RBAC involved.
+3. moderation/permissions.py -- DONE. The RBAC core: a real permission
+   matrix over the three roles (User / Admin / Developer), with the full
+   grid written out as a table at the top of the file.
+     - Permission: 17 named privileges (constants, so a typo is an error
+       rather than a silent denial).
+     - ROLE_PERMISSIONS: each role's privileges listed in full - NOTHING is
+       inherited. No role's column is a superset of another's; the only
+       deliberate overlap is manage_user_accounts / revoke_user_sessions,
+       which both privileged roles hold via their own separate menus.
+     - has_permission() is now the single authorisation predicate;
+       admin_required / developer_required / role_required /
+       require_permission all build on it, and RoleAccessMiddleware is
+       driven by ROLE_ALLOWED_PREFIXES from the same matrix.
+     - SECURITY FIX: Django's is_staff/is_superuser no longer grant
+       anything. They gated the old placeholders, which meant a Django
+       superuser silently held Developer power without appearing as one in
+       the Role column. portal_login() was reading those flags too and now
+       routes on role_of() instead. Verified: an is_staff+is_superuser
+       account whose Profile.role is USER gets zero privileges.
+     - Verified live over HTTP: each role reaches its own area (200), a
+       Standard User hitting /moderation/ or /portal/ gets 403, and an
+       Admin or Developer straying outside their area gets redirected home
+       (302) by the middleware.
+   NOTE: post visibility is NOT part of this - posts are simply
+   friends-only, no RBAC involved.
    accounts.models.Role (USER/ADMIN/DEVELOPER) / Profile.is_admin /
    Profile.is_developer are the building blocks this sits on top of -
    DEVELOPER is a separate privilege tier from ADMIN, not a superset (see
@@ -126,21 +157,43 @@ in accounts/.
    hold both Admin and Developer simultaneously despite that being the
    original intent).
 
-3b. moderation/portal_views.py::portal_login() -- a separate login endpoint
-   (/portal/login/, template moderation/templates/moderation/portal_login.html)
-   for admins and developers, distinct from the regular /accounts/login/.
-   Same credentials, but routes to moderation:dashboard (admin) or
-   portal:developer_dashboard (developer) instead of the normal feed, and
-   rejects anyone who isn't one of those two roles. Currently skips the 2FA
-   step regular login goes through - decide whether it should be mandatory
-   here (coordinate with Munia on accounts/security/two_factor.py).
+3b. ONE LOGIN PAGE FOR EVERYONE -- DONE. The separate admin/developer portal
+   login (/portal/login/ + its view and template) has been REMOVED. Every
+   account - Standard User, Admin, Developer - signs in at the same
+   /accounts/login/. After authenticating, accounts/views.py::login_view
+   routes by role via moderation/permissions.py::home_url_for():
+        Standard User -> posts:feed
+        Admin         -> moderation:dashboard
+        Developer     -> portal:developer_dashboard
+   This works because each account holds EXACTLY ONE role (see the note on
+   accounts.models.Role) - so "where do I land?" always has one answer.
+   2FA applies to Standard Users only; Admin and Developer accounts skip it
+   by project decision and go straight to their panel.
+   What each role may then DO is still governed entirely by the permission
+   matrix + RoleAccessMiddleware, so sharing a login page does not widen
+   anyone's access: an Admin who logs in here still cannot reach the feed.
 
-4. crypto_core/asymmetric/ecc_scratch.py -- ECC implemented from scratch:
-   keypair generation, encrypt, decrypt. One of the two required asymmetric
-   algorithms (Afnan has the other, RSA, in rsa_scratch.py in the same
-   folder) -- the assignment requires at least two different algorithms,
-   each used for a different part of the system. Register it with
-   crypto_core/encryption_service.py (Munia's facade) once done.
+4. crypto_core/asymmetric/ecc_scratch.py -- DONE. ECC from scratch on
+   secp256k1: field arithmetic, point add/double, double-and-add scalar
+   multiplication, modular square root, compressed-point encoding, Koblitz
+   embedding of plaintext onto the curve, and EC-ElGamal encryption. No
+   crypto library used anywhere in it.
+     - Deliberately NOT ECIES: ECIES is a hybrid scheme that finishes with a
+       symmetric cipher, and the requirements forbid symmetric encryption.
+       EC-ElGamal (C1 = kG, C2 = M + kQ) keeps it fully asymmetric.
+     - Interface matches RSACipher exactly (generate_keypair / encrypt /
+       decrypt), so encryption_service.py can treat them interchangeably.
+     - Verified working through Afnan's KMM: key generation, wrapped private
+       key storage, unwrap, encrypt/decrypt, and rotation (old KeyRecords
+       stay decryptable).
+     - STILL TO DO (Munia): actually call it from
+       crypto_core/encryption_service.py. Suggested split per that file -
+       ECC for messages, RSA for profile data - so both required algorithms
+       are genuinely used for different parts of the system.
+     - Known limitations are documented in the module docstring: EC-ElGamal
+       is malleable (needs Munia's MAC over the ciphertext for integrity),
+       ciphertext length leaks plaintext length, and scalar multiplication
+       is not constant-time.
 
 5. moderation/views.py::dashboard() -- the Admin Security Dashboard shell
    (total/banned/suspended users, active sessions, flagged posts, pending

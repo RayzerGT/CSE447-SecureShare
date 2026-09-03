@@ -1,17 +1,15 @@
 """
 moderation/portal_views.py
-Split ownership - see todo.txt:
-    - portal_login()                        -> Razeen Hassan (RBAC core owner -
-                                                this is the gate that decides
-                                                who even gets in)
-    - developer_dashboard(), manage_admins(),
-      manage_users()                        -> Mos. Mahabuba Akter Munia
+Assigned to: Mos. Mahabuba Akter Munia (see todo.txt)
 
-A separate login endpoint (/portal/login/) for admins and developers, kept
-apart from the regular /accounts/login/ used by everyone else. Same
-credentials/password check as regular login (there's only one User table -
-this isn't a second account system), but success here checks role and
-routes to a privileged dashboard instead of the normal feed.
+The Developer panel: the raw-database viewer plus the two management menus
+(manage_admins, manage_users).
+
+LOGIN: there is no separate portal login any more. Everyone - Standard User,
+Admin and Developer alike - signs in at the one shared /accounts/login/, and
+accounts/views.py::login_view routes them to their own landing page using
+moderation/permissions.py::home_url_for(). Each account holds exactly one
+role, so that routing is unambiguous.
 
 HIERARCHY (see moderation/permissions.py for the full writeup): Developers
 manage the Admin role itself (manage_admins) and separately manage Standard
@@ -20,70 +18,19 @@ Standard User accounts (moderation/views.py::user_management) - they can't
 create other admins or touch Developer accounts.
 """
 
-from django.contrib.auth import authenticate, get_user_model
-from django.contrib.auth import login as django_login
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 
-from accounts.forms import LoginForm
 from accounts.models import Profile, Role, TwoFactorSettings
-from accounts.security import session_manager
 
 from .forms import AdminCreationForm
 from .logging_service import log_event
-from .models import AccountState
 from .permissions import developer_required
 from .views import apply_account_status_action
 
 User = get_user_model()
 
-
-def portal_login(request):
-    """
-    Owner: Razeen Hassan
-
-    TODO(Razeen Hassan):
-        1. This currently skips the 2FA step that regular login goes
-           through (accounts/views.py::login_view) - for a privileged
-           portal, 2FA arguably should be mandatory rather than optional.
-           Decide and wire it in (coordinate with Munia on
-           accounts/security/two_factor.py).
-        2. Once developer_required / admin_required in permissions.py use
-           the real RBAC matrix instead of is_staff/is_superuser
-           placeholders, this view's role check still doesn't need to
-           change - it only needs to know WHICH dashboard to send someone
-           to, not re-implement the permission decision itself.
-    """
-    if request.method == "POST":
-        form = LoginForm(request.POST)
-        if form.is_valid():
-            user = authenticate(
-                request,
-                username=form.cleaned_data["username"],
-                password=form.cleaned_data["password"],
-            )
-            profile = getattr(user, "profile", None) if user else None
-            is_admin = user and (user.is_staff or getattr(profile, "is_admin", False))
-            is_developer = user and (user.is_superuser or getattr(profile, "is_developer", False))
-
-            if user is not None and AccountState.is_blocked_for(user):
-                messages.error(request, "This account is locked, suspended, or banned.")
-                return render(request, "moderation/portal_login.html", {"form": LoginForm()})
-
-            if user is not None and (is_admin or is_developer):
-                django_login(request, user)
-                session_manager.issue_session(request, user, device_info=request.META.get("HTTP_USER_AGENT", ""))
-                if is_admin:
-                    return redirect("moderation:dashboard")
-                return redirect("portal:developer_dashboard")
-
-            # Deliberately the same error for "wrong password" and "correct
-            # password but not admin/developer" - don't leak which case it was.
-            messages.error(request, "Invalid credentials or insufficient privileges for this portal.")
-    else:
-        form = LoginForm()
-    return render(request, "moderation/portal_login.html", {"form": form})
 
 
 @login_required

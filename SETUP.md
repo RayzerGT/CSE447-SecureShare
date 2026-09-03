@@ -51,11 +51,11 @@ Full details/explanations live in `README.md` — this is just the checklist.
 7. **Verify it works:** open `http://127.0.0.1:8000/accounts/login/` and log in
    as `alice` / `demo12345`. You should land on the feed with three posts.
 
-   | Where | Who | Password |
+   | Login page | Who | Password |
    |---|---|---|
    | `/accounts/login/` | `alice`, `bob`, `carol` | `demo12345` |
-   | `/portal/login/` | `Razeen`, `Afnan`, `Munia` (Developer) | `1234` |
-   | `/portal/login/` | `razeen_admin` (Admin) | `123` |
+   | `/accounts/login/` | `Razeen`, `Afnan`, `Munia` (Developer) | `1234` |
+   | `/accounts/login/` | `razeen_admin` (Admin) | `123` |
 
 8. **Find your tasks:** open `todo.txt` and read your section. To find every
    spot in the code assigned to you:

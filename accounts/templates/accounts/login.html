@@ -30,9 +30,9 @@
         </a>
         {% endif %}
 
-        <div class="auth-divider">OR</div>
-
-        <a href="{% url 'portal:portal_login' %}" class="btn ghost block">Admin &amp; Developer portal</a>
+        {# One login page for every role. Where you land after signing in is
+           decided by your account's role - see accounts/views.py::login_view
+           and moderation/permissions.py::home_url_for. #}
     </div>
 
     <div class="auth-alt">

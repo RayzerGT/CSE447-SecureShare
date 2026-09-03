@@ -27,16 +27,16 @@ class Role(models.TextChoices):
     day-to-day moderation. A developer is not automatically an admin and
     vice versa.
 
-    KNOWN LIMITATION - TODO(Razeen Hassan): Profile.role below is a single
-    field, so it can only hold ONE of these at a time. Promoting someone to
-    ADMIN (moderation/views.py::user_management) will silently overwrite an
-    existing DEVELOPER designation, and vice versa - there's currently no
-    way for one account to genuinely hold both roles at once, despite that
-    being the intent. If the team needs a person to be both, replace this
-    single CharField with either two independent boolean flags or a
-    many-to-many "roles" relation, and update admin_required/
-    developer_required in moderation/permissions.py (which currently read
-    Profile.role directly) accordingly.
+    EXACTLY ONE ROLE PER ACCOUNT - by design, not a limitation. Profile.role
+    is a single field, so an account is a Standard User, an Admin, or a
+    Developer, and stays that one thing. Nobody holds two roles at once.
+
+    That is what lets the whole system share ONE login page: signing in is
+    identical for everybody, and the account's single role decides where it
+    lands (moderation/permissions.py::home_url_for) and what it may do
+    (the permission matrix in the same module). If an account needed two
+    roles, "which panel do I land on?" would have no single answer - so
+    someone who needs both powers gets two separate accounts.
     """
 
     USER = "user", "Standard User"

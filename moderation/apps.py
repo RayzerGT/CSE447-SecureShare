@@ -5,7 +5,7 @@ class ModerationConfig(AppConfig):
     """
     Split ownership - see todo.txt:
         - permissions.py (RBAC core + RoleAccessMiddleware), the admin
-          dashboard shell (views.py::dashboard()), and portal_login()
+          dashboard shell (views.py::dashboard())
           (portal_views.py)                                                  -> Razeen Hassan
         - audit log viewer, logging_service.py, user management (Standard
           Users only), content moderation, reports (the rest of views.py),

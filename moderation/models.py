@@ -52,7 +52,7 @@ class AccountState(models.Model):
         BANNED = "banned", "Banned"
 
     # Statuses that block login entirely (checked in accounts/views.py::login_view
-    # and moderation/portal_views.py::portal_login - see is_blocked_for below).
+    # see is_blocked_for below).
     BLOCKING_STATUSES = {Status.LOCKED, Status.SUSPENDED, Status.BANNED}
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="account_state")

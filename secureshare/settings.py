@@ -226,9 +226,12 @@ LOGOUT_REDIRECT_URL = "accounts:login"
 #     what "session ends N minutes after login" means here. Override via the
 #     SESSION_TIMEOUT_MINUTES env var.
 #
-# TODO(Razeen Hassan): still riding on Django's default signed session cookie
-# rather than a custom/from-scratch token scheme - see session_manager.py.
+# Sessions are additionally pinned to the browser and IP that created them
+# (accounts/security/session_manager.py, rule 2 - anti-hijacking). IP pinning
+# is the part most likely to cause a false logout on a flaky mobile network,
+# so it can be turned off on its own without giving up browser pinning.
 # ---------------------------------------------------------------------------
+SESSION_BIND_IP = os.getenv("SESSION_BIND_IP", "True") == "True"
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "False") == "True"
