@@ -46,6 +46,7 @@ from django.conf import settings
 
 from accounts.models import TwoFactorSettings
 from crypto_core.mac.hmac_scratch import compute_mac
+from crypto_core.encryption_service import EncryptionService
 
 logger = logging.getLogger("accounts.security.two_factor")
 
@@ -63,9 +64,20 @@ def _get_or_create_secret(user) -> str:
     settings_row, _ = TwoFactorSettings.objects.get_or_create(user=user)
     if not settings_row.secret:
         # 20 random bytes, hex-encoded - plenty of entropy for an HMAC key.
-        settings_row.secret = secrets.token_hex(20)
+        settings_row.secret = EncryptionService.encrypt_profile_data(user, secrets.token_hex(20))
         settings_row.save(update_fields=["secret"])
-    return settings_row.secret
+        return EncryptionService.decrypt_profile_data(user, settings_row.secret)
+
+    try:
+        return EncryptionService.decrypt_profile_data(user, settings_row.secret)
+    except (ValueError, UnicodeDecodeError):
+        # Migrate legacy development rows that stored the raw hex secret.
+        if len(settings_row.secret) == 40:
+            encrypted_secret = EncryptionService.encrypt_profile_data(user, settings_row.secret)
+            settings_row.secret = encrypted_secret
+            settings_row.save(update_fields=["secret"])
+            return EncryptionService.decrypt_profile_data(user, encrypted_secret)
+        raise ValueError("stored 2FA secret could not be decrypted")
 
 
 def _time_step(when: datetime = None) -> int:
@@ -125,9 +137,10 @@ def verify_otp(user, submitted_code: str) -> bool:
     if not settings_row or not settings_row.secret:
         return False
 
+    secret = _get_or_create_secret(user)
     current_step = _time_step()
     for drift in range(-_ALLOWED_WINDOW_DRIFT, _ALLOWED_WINDOW_DRIFT + 1):
-        expected = _hotp_code(settings_row.secret, current_step + drift)
+        expected = _hotp_code(secret, current_step + drift)
         if secrets.compare_digest(expected, submitted_code):
             return True
     return False

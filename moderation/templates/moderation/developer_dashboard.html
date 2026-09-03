@@ -11,18 +11,52 @@
     </p>
 </div>
 
-<p class="dev-note">
-    TODO(Mos. Mahabuba Akter Munia): once password hashing (Afnan) and profile-data
-    encryption (yours) are implemented for real, the "Password hash" and "Contact
-    info" columns below should show real hash/ciphertext output. Right now they
-    reflect whatever's actually stored - Django's default hasher for passwords
-    already, plaintext for contact info until your encryption lands.
-</p>
-
 <div class="card">
     <div class="btn-row">
         <a href="{% url 'portal:manage_admins' %}" class="btn">Manage admins</a>
         <a href="{% url 'portal:manage_users' %}" class="btn secondary">Manage users</a>
+    </div>
+
+    <div class="card flush">
+        <div class="list-head">Key records <span class="text-muted">({{ key_records|length }} rows)</span></div>
+        <div class="table-scroll">
+            <table class="raw-table">
+                <thead><tr><th>ID</th><th>Owner</th><th>Algorithm</th><th>Public key</th><th>Encrypted private key</th><th>Active</th></tr></thead>
+                <tbody>
+                    {% for key in key_records %}
+                    <tr><td>{{ key.id }}</td><td>{{ key.owner.username }}</td><td>{{ key.algorithm }}</td><td><code class="wrap">{{ key.public_key }}</code></td><td><code class="wrap">{{ key.encrypted_private_key }}</code></td><td>{{ key.is_active }}</td></tr>
+                    {% empty %}<tr><td colspan="6" class="text-muted">No key records yet.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card flush">
+        <div class="list-head">Encrypted messages <span class="text-muted">({{ encrypted_messages|length }} rows)</span></div>
+        <div class="table-scroll">
+            <table class="raw-table">
+                <thead><tr><th>ID</th><th>Sender</th><th>Recipient</th><th>Ciphertext</th><th>MAC</th></tr></thead>
+                <tbody>
+                    {% for message in encrypted_messages %}
+                    <tr><td>{{ message.id }}</td><td>{{ message.sender.username }}</td><td>{{ message.recipient.username }}</td><td><code class="wrap">{{ message.ciphertext }}</code></td><td><code class="wrap">{{ message.mac_tag }}</code></td></tr>
+                    {% empty %}<tr><td colspan="5" class="text-muted">No encrypted messages yet.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card flush">
+        <div class="list-head">Encrypted posts <span class="text-muted">({{ encrypted_posts|length }} rows)</span></div>
+        <div class="table-scroll">
+            <table class="raw-table">
+                <thead><tr><th>ID</th><th>Owner</th><th>Encrypted caption</th><th>Image bytes</th><th>MAC</th></tr></thead>
+                <tbody>
+                    {% for post in encrypted_posts %}
+                    <tr><td>{{ post.id }}</td><td>{{ post.owner.username }}</td><td><code class="wrap">{{ post.encrypted_caption }}</code></td><td>{{ post.encrypted_image_blob|length }}</td><td><code class="wrap">{{ post.mac_tag }}</code></td></tr>
+                    {% empty %}<tr><td colspan="5" class="text-muted">No encrypted posts yet.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
