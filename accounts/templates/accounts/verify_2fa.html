@@ -18,10 +18,11 @@
             <button type="submit" class="block">Confirm</button>
         </form>
 
-        <p class="dev-note" style="margin-top:18px;text-align:left">
-            TODO(Mos. Mahabuba Akter Munia): this currently accepts any code - real
-            OTP verification lives in accounts/security/two_factor.py.
-        </p>
+        {% if messages %}
+            {% for message in messages %}
+                <p class="dev-note" style="margin-top:18px;text-align:left">{{ message }}</p>
+            {% endfor %}
+        {% endif %}
     </div>
 
     <div class="auth-alt">
