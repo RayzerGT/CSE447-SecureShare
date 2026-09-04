@@ -22,21 +22,37 @@
                         <span class="badge {% if status == 'active' %}active{% else %}revoked{% endif %}">
                             {{ u.account_state.get_status_display|default:"Active" }}
                         </span>
+                        {% if u.account_state.suspended_until %}
+                        <div class="user-row__sub">until {{ u.account_state.suspended_until|date:"d M Y, H:i" }}</div>
+                        {% endif %}
+                        {% if u.account_state.reason %}
+                        <div class="user-row__sub">{{ u.account_state.reason }}</div>
+                        {% endif %}
                         {% endwith %}
                     </td>
-                    <td>{{ u.account_state.warning_count|default:"0" }}</td>
+                    <td>{{ u.account_state.warning_count|default:"0" }} / {{ warnings_before_suspension }}</td>
                     <td>
-                        <form method="post" class="btn-row">
+                        <form method="post">
                             {% csrf_token %}
                             <input type="hidden" name="user_id" value="{{ u.id }}">
-                            <button name="action" value="warn" class="secondary sm">Warn</button>
-                            <button name="action" value="lock" class="secondary sm">Lock</button>
-                            <button name="action" value="suspend" class="secondary sm">Suspend</button>
-                            <button name="action" value="reactivate" class="secondary sm">Reactivate</button>
-                            <button name="action" value="revoke_sessions" class="secondary sm"
-                                    data-confirm="Revoke all sessions for {{ u.username }}?">Revoke sessions</button>
-                            <button name="action" value="ban" class="solid-danger sm"
-                                    data-confirm="Ban {{ u.username }}? This removes all their friendships and hides their posts.">Ban</button>
+                            <div class="mod-actions">
+                                <input type="text" name="reason" placeholder="Reason shown to {{ u.username }}">
+                                <span class="mod-actions__label">suspend for</span>
+                                <input type="number" name="days" value="{{ suspension_days }}" min="1" max="365">
+                                <span class="mod-actions__label">days</span>
+                            </div>
+                            <div class="btn-row" style="margin-top:8px">
+                                <button name="action" value="warn" class="secondary sm">Warn</button>
+                                <button name="action" value="lock" class="secondary sm"
+                                        data-confirm="Lock {{ u.username }}? They are signed out and cannot log in until reactivated.">Lock</button>
+                                <button name="action" value="suspend" class="secondary sm"
+                                        data-confirm="Suspend {{ u.username }}? They are signed out until the suspension expires.">Suspend</button>
+                                <button name="action" value="reactivate" class="secondary sm">Reactivate</button>
+                                <button name="action" value="revoke_sessions" class="secondary sm"
+                                        data-confirm="Revoke all sessions for {{ u.username }}?">Revoke sessions</button>
+                                <button name="action" value="ban" class="solid-danger sm"
+                                        data-confirm="Ban {{ u.username }}? This is permanent: all friendships are removed and every session is revoked.">Ban</button>
+                            </div>
                         </form>
                     </td>
                 </tr>

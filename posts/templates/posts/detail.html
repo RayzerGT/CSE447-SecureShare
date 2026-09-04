@@ -4,7 +4,8 @@
 {% block content %}
 <div class="post-view">
     <div class="post-view__media">
-        {% if post.display_image %}<img src="{{ post.display_image }}" alt="Post by {{ post.owner.username }}">{% endif %}
+        <img src="{% url 'posts:image' post.id %}?v={{ post.mac_tag|slice:':8' }}"
+             alt="Post by {{ post.owner.username }}" decoding="async">
     </div>
 
     <header class="post__head post-view__head">

@@ -29,37 +29,56 @@
 
     {% if report.kind == "post" %}
         <div class="ticket__quote">
-            {{ report.post.caption|default:"(no caption)" }}
-            {% if report.post.image %}<img class="ticket__media" src="{{ report.post.image.url }}" alt="Reported post">{% endif %}
+            {{ report.post.display_caption|default:"(no caption)" }}
+            {% if report.post %}<img class="ticket__media" src="{% url 'posts:thumbnail' report.post.id %}" alt="Reported post">{% endif %}
         </div>
     {% elif report.kind == "message" %}
         <div class="ticket__quote">
-            {{ report.message.plaintext_body|default:"(no text)" }}
-            {% if report.message.image %}<img class="ticket__media" src="{{ report.message.image.url }}" alt="Reported message photo">{% endif %}
+            {{ report.message.display_body|default:"(no text)" }}
         </div>
     {% endif %}
 
     <p class="ticket__reason">Reason: {{ report.reason|default:"(no reason given)" }}</p>
 
-    <form method="post" class="btn-row">
+    {% if report.subject %}
+    <p class="ticket__subject">
+        Account under review: <strong>{{ report.subject.username }}</strong> &middot;
+        {{ report.subject_state.get_status_display|default:"Active" }} &middot;
+        {{ report.subject_state.warning_count|default:"0" }} warning{{ report.subject_state.warning_count|default:"0"|pluralize }}
+    </p>
+    {% endif %}
+
+    <form method="post">
         {% csrf_token %}
         <input type="hidden" name="report_id" value="{{ report.id }}">
 
-        {% if report.kind == "post" %}
-            <button name="action" value="delete_post" class="solid-danger sm"
-                    data-confirm="Delete the reported post?">Delete post</button>
-        {% elif report.kind == "user" %}
-            <button name="action" value="warn" class="secondary sm">Warn user</button>
-            <button name="action" value="suspend" class="secondary sm"
-                    data-confirm="Suspend {{ report.reported_user.username }}?">Suspend</button>
-            <button name="action" value="ban" class="solid-danger sm"
-                    data-confirm="Ban {{ report.reported_user.username }}? This removes all their friendships and hides their posts.">Ban</button>
-        {% elif report.kind == "message" %}
-            <button name="action" value="delete_message" class="solid-danger sm"
-                    data-confirm="Delete the reported message?">Delete message</button>
-        {% endif %}
+        <div class="mod-actions">
+            <input type="text" name="reason"
+                   placeholder="{% if report.subject %}Reason shown to {{ report.subject.username }}{% else %}Reason for the audit log{% endif %}">
+            <span class="mod-actions__label">suspend for</span>
+            <input type="number" name="days" value="{{ suspension_days }}" min="1" max="365">
+            <span class="mod-actions__label">days</span>
+        </div>
 
-        <button name="action" value="dismiss" class="secondary sm">Dismiss</button>
+        <div class="btn-row" style="margin-top:10px">
+            {% if report.kind == "post" %}
+                <button name="action" value="delete_post" class="solid-danger sm"
+                        data-confirm="Delete this post? {{ report.post.owner.username }} will be told it was removed.">Delete post</button>
+            {% elif report.kind == "message" %}
+                <button name="action" value="delete_message" class="solid-danger sm"
+                        data-confirm="Delete this message? {{ report.message.sender.username }} will be told it was removed.">Delete message</button>
+            {% endif %}
+
+            {% if report.subject %}
+                <button name="action" value="warn" class="secondary sm">Warn {{ report.subject.username }}</button>
+                <button name="action" value="suspend" class="secondary sm"
+                        data-confirm="Suspend {{ report.subject.username }}? They are signed out immediately and cannot log in until it expires.">Suspend</button>
+                <button name="action" value="ban" class="solid-danger sm"
+                        data-confirm="Ban {{ report.subject.username }}? This is permanent: all friendships are removed and every session is revoked.">Ban</button>
+            {% endif %}
+
+            <button name="action" value="dismiss" class="secondary sm">Dismiss</button>
+        </div>
     </form>
 </div>
 {% empty %}

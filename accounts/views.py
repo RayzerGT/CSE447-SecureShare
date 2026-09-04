@@ -11,6 +11,7 @@ from django.utils.safestring import mark_safe
 from .forms import LoginForm, ProfileForm, RegistrationForm, TwoFactorForm
 from .security import google_oauth
 
+from posts.encryption import ENCRYPTED_BLOB_FIELDS
 from posts.models import Post
 from social.models import FriendRequest, Friendship
 from .models import ActiveSession, Profile, Role, TwoFactorSettings
@@ -93,7 +94,7 @@ def google_login_callback(request):
     user = User.objects.filter(email=profile["email"]).first() if profile["email"] else None
     if user is not None:
         if AccountState.is_blocked_for(user):
-            messages.error(request, "This account is locked, suspended, or banned. Contact an administrator.")
+            messages.error(request, AccountState.block_message_for(user), extra_tags="sticky")
             return redirect("accounts:login")
 
         if two_factor.is_required_for(user):
@@ -122,7 +123,7 @@ def login_view(request):
             )
             if user is not None and AccountState.is_blocked_for(user):
                 log_event(user, "login_blocked", request=request)
-                messages.error(request, "This account is locked, suspended, or banned. Contact an administrator.")
+                messages.error(request, AccountState.block_message_for(user), extra_tags="sticky")
                 return render(
                     request,
                     "accounts/login.html",
@@ -158,7 +159,7 @@ def verify_2fa(request):
 
     if AccountState.is_blocked_for(user):
         del request.session["pending_2fa_user_id"]
-        messages.error(request, "This account is locked, suspended, or banned. Contact an administrator.")
+        messages.error(request, AccountState.block_message_for(user), extra_tags="sticky")
         return redirect("accounts:login")
 
     if request.method == "POST":
@@ -201,6 +202,7 @@ def profile_view(request, username=None):
     if is_friend:
         posts = (
             Post.objects.filter(owner=user, is_deleted=False)
+            .defer(*ENCRYPTED_BLOB_FIELDS)
             .annotate(
                 like_count=Count("likes", distinct=True),
                 comment_count=Count("comments", filter=Q(comments__is_deleted=False), distinct=True),

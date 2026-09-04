@@ -58,6 +58,8 @@ MIDDLEWARE = [
 
     "accounts.security.session_manager.SecureSessionMiddleware",
 
+    "moderation.account_status.AccountStatusMiddleware",
+
     "moderation.permissions.RoleAccessMiddleware",
 ]
 
@@ -75,6 +77,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "social.context_processors.pending_requests",
+                "moderation.context_processors.account_notices",
             ],
         },
     },

@@ -15,20 +15,24 @@
 <div class="mod-grid">
     {% for post in flagged_posts %}
     <div class="card flush mod-item">
-        {% if post.image %}
-        <div class="mod-item__media"><img src="{{ post.image.url }}" alt="Flagged post"></div>
-        {% endif %}
+        <div class="mod-item__media"><img src="{% url 'posts:thumbnail' post.id %}" alt="Flagged post"></div>
         <div class="mod-item__body">
             <div class="cell-user">
                 {% include "_avatar.html" with u=post.owner size="sm" %}
                 <strong>{{ post.owner.username }}</strong>
             </div>
-            <p class="text-muted">{{ post.caption|default:"(no caption)"|truncatechars:120 }}</p>
+            <p class="text-muted">{{ post.display_caption|default:"(no caption)"|truncatechars:120 }}</p>
             <form method="post">
                 {% csrf_token %}
                 <input type="hidden" name="post_id" value="{{ post.id }}">
-                <button name="action" value="delete_post" class="solid-danger sm"
-                        data-confirm="Delete this post?">Delete post</button>
+                <div class="mod-actions">
+                    <input type="text" name="reason" placeholder="Reason shown to {{ post.owner.username }}">
+                </div>
+                <div class="btn-row" style="margin-top:8px">
+                    <button name="action" value="delete_post" class="solid-danger sm"
+                            data-confirm="Delete this post? {{ post.owner.username }} will be told it was removed.">Delete post</button>
+                    <button name="action" value="clear_flag" class="secondary sm">Keep post</button>
+                </div>
             </form>
         </div>
     </div>

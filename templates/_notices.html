@@ -1,0 +1,30 @@
+{% if account_notices %}
+<div class="notice-stack" data-notice-stack>
+    {% for notice in account_notices %}
+    <div class="notice notice--{{ notice.level }}" role="alert">
+        <div class="notice__icon">
+            {% if notice.level == "reinstatement" %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            {% else %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+            {% endif %}
+        </div>
+        <div class="notice__body">
+            <div class="notice__head">
+                <span class="badge notice__level">{{ notice.get_level_display }}</span>
+                <time class="notice__time">{{ notice.created_at|timesince }} ago</time>
+            </div>
+            <h3 class="notice__headline">{{ notice.headline }}</h3>
+            {% if notice.body %}<p class="notice__text">{{ notice.body|linebreaksbr }}</p>{% endif %}
+        </div>
+        <form method="post" action="{% url 'moderation:acknowledge_notice' notice.id %}" class="notice__ack">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button type="submit" class="iconbtn notice__close" aria-label="Dismiss this notice">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}

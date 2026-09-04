@@ -35,11 +35,10 @@
             </div>
         </header>
 
-        {% if post.display_image %}
         <a href="{% url 'posts:detail' post.id %}" class="post__media">
-            <img src="{{ post.display_image }}" alt="Post by {{ post.owner.username }}">
+            <img src="{% url 'posts:thumbnail' post.id %}?v={{ post.mac_tag|slice:':8' }}"
+                 alt="Post by {{ post.owner.username }}" loading="lazy" decoding="async">
         </a>
-        {% endif %}
 
         <div class="post__actions">
             <a href="{% url 'social:like_post' post.id %}"

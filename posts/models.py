@@ -9,7 +9,9 @@ class Post(models.Model):
 
     encrypted_caption = models.TextField(blank=True)
     encrypted_image_blob = models.BinaryField(blank=True, null=True)
+    encrypted_thumbnail_blob = models.BinaryField(blank=True, null=True)
     mac_tag = models.CharField(max_length=255, blank=True)
+    caption_mac_tag = models.CharField(max_length=255, blank=True)
 
     is_flagged = models.BooleanField(default=False)
     is_deleted = models.BooleanField(default=False)

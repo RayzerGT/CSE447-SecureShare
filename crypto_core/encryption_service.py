@@ -132,6 +132,36 @@ class EncryptionService:
         return plaintext.decode("utf-8")
 
     @staticmethod
+    def encrypt_binary(owner, payload: bytes) -> bytes:
+        record = EncryptionService._key_record(owner, KeyRecord.Algorithm.RSA)
+        return EncryptionService._wrap_binary(
+            record.pk,
+            EncryptionService._rsa_encrypt_chunks(payload, EncryptionService._public_key(record)),
+        )
+
+    @staticmethod
+    def decrypt_binary(owner, blob: bytes) -> bytes:
+        key_id, raw = EncryptionService._unwrap_binary(blob)
+        record = EncryptionService._record_for_decrypt(owner, KeyRecord.Algorithm.RSA, key_id)
+        return EncryptionService._rsa_decrypt_chunks(raw, KeyManagementModule.get_private_key(record))
+
+    @staticmethod
+    def encrypt_text(owner, plaintext: str) -> str:
+        record = EncryptionService._key_record(owner, KeyRecord.Algorithm.RSA)
+        return EncryptionService._wrap_text(
+            record.pk,
+            EncryptionService._rsa_encrypt_chunks(plaintext.encode("utf-8"), EncryptionService._public_key(record)),
+        )
+
+    @staticmethod
+    def decrypt_text(owner, ciphertext: str) -> str:
+        key_id, raw = EncryptionService._unwrap_text(ciphertext)
+        record = EncryptionService._record_for_decrypt(owner, KeyRecord.Algorithm.RSA, key_id)
+        return EncryptionService._rsa_decrypt_chunks(
+            raw, KeyManagementModule.get_private_key(record)
+        ).decode("utf-8")
+
+    @staticmethod
     def encrypt_post(owner, image_bytes: bytes, caption: str) -> tuple:
         record = EncryptionService._key_record(owner, KeyRecord.Algorithm.RSA)
         public_key = EncryptionService._public_key(record)

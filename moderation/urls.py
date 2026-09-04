@@ -13,4 +13,5 @@ urlpatterns = [
     path("report/<int:post_id>/", views.submit_report, name="submit_report"),
     path("report-user/<str:username>/", views.report_user, name="report_user"),
     path("report-message/<int:message_id>/", views.report_message, name="report_message"),
+    path("notice/<int:notice_id>/ack/", views.acknowledge_notice, name="acknowledge_notice"),
 ]

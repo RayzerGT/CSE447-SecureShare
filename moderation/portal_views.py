@@ -13,8 +13,9 @@ from posts.models import Post
 
 from .forms import AdminCreationForm
 from .logging_service import log_event
+from .models import AccountState
 from .permissions import Permission, developer_required, require_permission
-from .views import apply_account_status_action
+from .moderation_service import apply_account_status_action
 
 User = get_user_model()
 
@@ -148,7 +149,11 @@ def manage_users(request):
     if request.method == "POST":
         target_user = get_object_or_404(User, pk=request.POST.get("user_id"), profile__role=Role.USER)
         action = request.POST.get("action")
-        if apply_account_status_action(request.user, target_user, action):
+        reason = request.POST.get("reason", "").strip()
+        days = request.POST.get("days")
+        if apply_account_status_action(
+            request.user, target_user, action, reason, int(days) if days and days.isdigit() else None
+        ):
             log_event(
                 request.user,
                 f"developer_account_{action}",
@@ -158,4 +163,12 @@ def manage_users(request):
         return redirect("portal:manage_users")
 
     users = User.objects.select_related("profile", "account_state").filter(profile__role=Role.USER)
-    return render(request, "moderation/manage_users.html", {"users": users})
+    return render(
+        request,
+        "moderation/manage_users.html",
+        {
+            "users": users,
+            "suspension_days": AccountState.DEFAULT_SUSPENSION_DAYS,
+            "warnings_before_suspension": AccountState.WARNINGS_BEFORE_SUSPENSION,
+        },
+    )

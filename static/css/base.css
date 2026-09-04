@@ -1137,3 +1137,61 @@ code.wrap { word-break: break-all; }
 .portal-shell .auth-card, .portal-shell .auth-alt { background: var(--surface); border-color: var(--border); color: var(--text); }
 .portal-shell .auth-icon { color: var(--red); }
 .portal-shell h1 { color: var(--text); }
+
+.notice-stack { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+
+.notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 14px 16px 16px;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--notice-accent, #d97706);
+    border-radius: 12px;
+    background: var(--card);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.07);
+}
+
+.notice--warning { --notice-accent: #d97706; }
+.notice--suspension { --notice-accent: #dc2626; }
+.notice--content_removed { --notice-accent: #dc2626; }
+.notice--reinstatement { --notice-accent: #16a34a; }
+
+.notice__icon {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--notice-accent);
+    background: color-mix(in srgb, var(--notice-accent) 14%, transparent);
+}
+.notice__icon svg { width: 19px; height: 19px; }
+
+.notice__body { flex: 1 1 auto; min-width: 0; }
+.notice__head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.notice__level {
+    background: color-mix(in srgb, var(--notice-accent) 16%, transparent);
+    color: var(--notice-accent);
+}
+.notice__time { font-size: 0.75rem; color: var(--text-muted); }
+.notice__headline { margin: 0; font-size: 0.95rem; font-weight: 600; line-height: 1.35; }
+.notice__text { margin: 6px 0 0; font-size: 0.86rem; color: var(--text-muted); line-height: 1.5; }
+
+.notice__ack { flex: 0 0 auto; margin: 0; }
+.notice__close { width: 30px; height: 30px; }
+.notice__close svg { width: 15px; height: 15px; }
+
+.mod-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.mod-actions input[type="text"] {
+    flex: 1 1 220px;
+    min-width: 160px;
+    margin: 0;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+}
+.mod-actions input[type="number"] { width: 74px; margin: 0; padding: 6px 8px; font-size: 0.8rem; }
+.mod-actions .mod-actions__label { font-size: 0.75rem; color: var(--text-muted); }
+
+.ticket__subject { font-size: 0.8rem; color: var(--text-muted); margin: 4px 0 0; }

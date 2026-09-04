@@ -1,23 +1,26 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db.models import Count, Q
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-import base64
-import mimetypes
 
 from social.models import Friendship, Like
 
+from .encryption import (
+    ENCRYPTED_BLOB_FIELDS,
+    decrypt_caption,
+    decrypt_image,
+    encrypt_and_store,
+    seal_caption,
+)
 from .forms import PostForm
+from .imaging import CONTENT_TYPE, prepare_upload
 from .models import Post
-from .encryption import decrypt_for_display, encrypt_and_store
 
-def _decrypt_post_for_template(post):
-    image_bytes, caption = decrypt_for_display(post)
-    content_type = mimetypes.guess_type(post.image.name if post.image else "")[0] or "application/octet-stream"
-    post.display_image = f"data:{content_type};base64,{base64.b64encode(image_bytes).decode('ascii')}"
-    post.display_caption = caption
-    return post
+
+def _visible_to(user, post) -> bool:
+    return post.owner_id == user.id or Friendship.are_friends(user, post.owner)
+
 
 @login_required
 def feed(request):
@@ -25,6 +28,7 @@ def feed(request):
     posts = (
         Post.objects.filter(is_deleted=False)
         .filter(Q(owner=request.user) | Q(owner_id__in=friend_ids))
+        .defer(*ENCRYPTED_BLOB_FIELDS)
         .select_related("owner", "owner__profile")
         .prefetch_related("comments__user")
         .annotate(
@@ -33,7 +37,7 @@ def feed(request):
         )
     )
     for post in posts:
-        _decrypt_post_for_template(post)
+        post.display_caption = decrypt_caption(post)
 
     context = {
         "posts": posts,
@@ -44,6 +48,29 @@ def feed(request):
     }
     return render(request, "posts/feed.html", context)
 
+
+@login_required
+def post_image(request, post_id):
+    return _serve_image(request, post_id, thumbnail=False)
+
+
+@login_required
+def post_thumbnail(request, post_id):
+    return _serve_image(request, post_id, thumbnail=True)
+
+
+def _serve_image(request, post_id, thumbnail: bool):
+    post = get_object_or_404(Post, pk=post_id, is_deleted=False)
+    if not _visible_to(request.user, post):
+        raise Http404("Post not found or not visible to you.")
+
+    image_bytes = decrypt_image(post, prefer_thumbnail=thumbnail)
+    response = HttpResponse(image_bytes, content_type=CONTENT_TYPE)
+    response["Cache-Control"] = "private, max-age=86400"
+    response["Content-Length"] = str(len(image_bytes))
+    return response
+
+
 @login_required
 def upload(request):
     if request.method == "POST":
@@ -52,27 +79,39 @@ def upload(request):
             post = form.save(commit=False)
             post.owner = request.user
             uploaded_image = form.cleaned_data["image"]
-            image_bytes = uploaded_image.read()
-            encrypt_and_store(post, image_bytes, form.cleaned_data["caption"])
+            full_image, thumbnail = prepare_upload(uploaded_image.read())
+            encrypt_and_store(post, full_image, form.cleaned_data["caption"], thumbnail)
             post.save()
             image_name = post.image.name
             post.image.delete(save=False)
             post.image.name = image_name
-            post.save(update_fields=["image", "caption", "encrypted_image_blob", "encrypted_caption", "mac_tag"])
+            seal_caption(post)
+            post.save(
+                update_fields=[
+                    "image",
+                    "caption",
+                    "encrypted_image_blob",
+                    "encrypted_thumbnail_blob",
+                    "encrypted_caption",
+                    "mac_tag",
+                    "caption_mac_tag",
+                ]
+            )
 
             return redirect("posts:feed")
     else:
         form = PostForm()
     return render(request, "posts/upload.html", {"form": form})
 
+
 @login_required
 def detail(request, post_id):
     post = get_object_or_404(Post, pk=post_id, is_deleted=False)
 
-    if post.owner_id != request.user.id and not Friendship.are_friends(request.user, post.owner):
+    if not _visible_to(request.user, post):
         raise Http404("Post not found or not visible to you.")
 
-    _decrypt_post_for_template(post)
+    post.display_caption = decrypt_caption(post)
     context = {
         "post": post,
         "comments": post.comments.filter(is_deleted=False).select_related("user", "user__profile"),
@@ -81,21 +120,32 @@ def detail(request, post_id):
     }
     return render(request, "posts/detail.html", context)
 
+
 @login_required
 def edit(request, post_id):
     post = get_object_or_404(Post, pk=post_id, owner=request.user, is_deleted=False)
     if request.method == "POST":
         form = PostForm(request.POST, request.FILES, instance=post)
         if form.is_valid():
-            old_image, _ = decrypt_for_display(post)
-            uploaded_image = form.cleaned_data.get("image")
-            image_bytes = uploaded_image.read() if uploaded_image else old_image
-            encrypt_and_store(post, image_bytes, form.cleaned_data["caption"])
-            post.save(update_fields=["caption", "encrypted_image_blob", "encrypted_caption", "mac_tag"])
+            uploaded_image = request.FILES.get("image")
             if uploaded_image:
-                image_name = uploaded_image.name
-                post.image.delete(save=False)
-                post.image.name = image_name
+                full_image, thumbnail = prepare_upload(uploaded_image.read())
+            else:
+                full_image, thumbnail = prepare_upload(decrypt_image(post))
+            encrypt_and_store(post, full_image, form.cleaned_data["caption"], thumbnail)
+            seal_caption(post)
+            post.save(
+                update_fields=[
+                    "caption",
+                    "encrypted_image_blob",
+                    "encrypted_thumbnail_blob",
+                    "encrypted_caption",
+                    "mac_tag",
+                    "caption_mac_tag",
+                ]
+            )
+            if uploaded_image:
+                post.image.name = uploaded_image.name
                 post.save(update_fields=["image"])
             return redirect("posts:detail", post_id=post.id)
     else:

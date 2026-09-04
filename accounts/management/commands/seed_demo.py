@@ -9,7 +9,8 @@ from accounts.models import Profile, Role, TwoFactorSettings
 from crypto_core.encryption_service import EncryptionService
 from messaging.models import Message
 from moderation.models import Report
-from posts.encryption import encrypt_and_store
+from posts.encryption import encrypt_and_store, seal_caption
+from posts.imaging import prepare_upload
 from posts.models import Post
 from social.models import Comment, FriendRequest, Friendship, Like
 
@@ -123,8 +124,11 @@ class Command(BaseCommand):
                 self.stdout.write(f"  exists   {caption}")
                 continue
             post = Post(owner=owner)
-            encrypt_and_store(post, _image(color), caption)
+            full_image, thumbnail = prepare_upload(_image(color))
+            encrypt_and_store(post, full_image, caption, thumbnail)
             post.save()
+            seal_caption(post)
+            post.save(update_fields=["caption_mac_tag"])
             other = bob if owner == alice else alice
             Like.objects.get_or_create(user=other, post=post)
             Comment.objects.get_or_create(user=other, post=post, content="Love this one.")

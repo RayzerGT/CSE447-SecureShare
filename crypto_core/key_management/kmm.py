@@ -6,6 +6,9 @@ from crypto_core.asymmetric.rsa_scratch import RSACipher
 from crypto_core.key_management.master_key import get_master_keypair
 from crypto_core.models import KeyRecord
 
+_unwrapped_private_keys = {}
+
+
 def _serialize_public_key(algorithm: str, public_key) -> str:
     if algorithm == KeyRecord.Algorithm.RSA:
         e, n = public_key
@@ -86,10 +89,20 @@ class KeyManagementModule:
 
     @staticmethod
     def get_private_key(key_record: KeyRecord):
+        cached = _unwrapped_private_keys.get(key_record.pk)
+        if cached is not None:
+            return cached
+
         private_key_bytes = _unwrap_private_key(key_record.encrypted_private_key)
         parsed = json.loads(private_key_bytes)
         if key_record.algorithm == KeyRecord.Algorithm.RSA:
-            return (parsed["d"], parsed["n"])
-        if key_record.algorithm == KeyRecord.Algorithm.ECC:
-            return parsed["scalar"]
-        raise ValueError(f"unknown algorithm: {key_record.algorithm}")
+            private_key = (parsed["d"], parsed["n"])
+        elif key_record.algorithm == KeyRecord.Algorithm.ECC:
+            private_key = parsed["scalar"]
+        else:
+            raise ValueError(f"unknown algorithm: {key_record.algorithm}")
+
+        if len(_unwrapped_private_keys) >= 256:
+            _unwrapped_private_keys.clear()
+        _unwrapped_private_keys[key_record.pk] = private_key
+        return private_key
