@@ -8,6 +8,11 @@ db.sqlite3
 /media/
 # Superseded team docs, kept locally in case they are needed again.
 /archive/
+
+# Setup files that are carried by hand rather than published here.
+/setup.bat
+/setup.sh
+/bootstrap.py
 /staticfiles/
 .venv/
 venv/
