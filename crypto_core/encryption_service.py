@@ -9,6 +9,11 @@ from crypto_core.key_management.kmm import KeyManagementModule
 from crypto_core.mac.hmac_scratch import compute_mac, verify_mac
 from crypto_core.models import KeyRecord
 
+_TEXT_ENVELOPE_VERSION = "v1"
+_BINARY_ENVELOPE_MAGIC = b"SSE1"
+_BINARY_KEY_ID_BYTES = 4
+
+
 class EncryptionService:
     @staticmethod
     def _key_record(user, algorithm: str) -> KeyRecord:
@@ -16,6 +21,41 @@ class EncryptionService:
             return KeyManagementModule.get_active_key_for_user(user, algorithm)
         except KeyRecord.DoesNotExist:
             return KeyManagementModule.generate_key_for_user(user, algorithm)
+
+    @staticmethod
+    def _record_for_decrypt(user, algorithm: str, key_id) -> KeyRecord:
+        if key_id is not None:
+            record = KeyRecord.objects.filter(pk=key_id, owner=user, algorithm=algorithm).first()
+            if record is not None:
+                return record
+            raise ValueError(
+                f"ciphertext was produced under {algorithm} key {key_id}, which no longer exists"
+            )
+        return EncryptionService._key_record(user, algorithm)
+
+    @staticmethod
+    def _wrap_text(key_id: int, ciphertext: bytes) -> str:
+        return f"{_TEXT_ENVELOPE_VERSION}.{key_id}.{base64.b64encode(ciphertext).decode('ascii')}"
+
+    @staticmethod
+    def _unwrap_text(value: str) -> tuple:
+        parts = value.split(".", 2)
+        if len(parts) == 3 and parts[0] == _TEXT_ENVELOPE_VERSION and parts[1].isdigit():
+            return int(parts[1]), base64.b64decode(parts[2], validate=True)
+        return None, base64.b64decode(value, validate=True)
+
+    @staticmethod
+    def _wrap_binary(key_id: int, ciphertext: bytes) -> bytes:
+        return _BINARY_ENVELOPE_MAGIC + key_id.to_bytes(_BINARY_KEY_ID_BYTES, "big") + ciphertext
+
+    @staticmethod
+    def _unwrap_binary(blob: bytes) -> tuple:
+        blob = bytes(blob)
+        header = len(_BINARY_ENVELOPE_MAGIC) + _BINARY_KEY_ID_BYTES
+        if blob[:len(_BINARY_ENVELOPE_MAGIC)] == _BINARY_ENVELOPE_MAGIC:
+            key_id = int.from_bytes(blob[len(_BINARY_ENVELOPE_MAGIC):header], "big")
+            return key_id, blob[header:]
+        return None, blob
 
     @staticmethod
     def _public_key(record: KeyRecord):
@@ -64,14 +104,14 @@ class EncryptionService:
         ciphertext = EncryptionService._rsa_encrypt_chunks(
             plaintext.encode("utf-8"), EncryptionService._public_key(record)
         )
-        return base64.b64encode(ciphertext).decode("ascii")
+        return EncryptionService._wrap_text(record.pk, ciphertext)
 
     @staticmethod
     def decrypt_profile_data(user, ciphertext: str) -> str:
-        record = EncryptionService._key_record(user, KeyRecord.Algorithm.RSA)
+        key_id, raw = EncryptionService._unwrap_text(ciphertext)
+        record = EncryptionService._record_for_decrypt(user, KeyRecord.Algorithm.RSA, key_id)
         plaintext = EncryptionService._rsa_decrypt_chunks(
-            base64.b64decode(ciphertext, validate=True),
-            KeyManagementModule.get_private_key(record),
+            raw, KeyManagementModule.get_private_key(record)
         )
         return plaintext.decode("utf-8")
 
@@ -80,14 +120,14 @@ class EncryptionService:
         record = EncryptionService._key_record(recipient, KeyRecord.Algorithm.ECC)
         ciphertext = ECCCipher.encrypt(plaintext.encode("utf-8"), EncryptionService._public_key(record))
         mac_tag = compute_mac(ciphertext, EncryptionService._mac_key(sender, recipient)).hex()
-        return base64.b64encode(ciphertext).decode("ascii"), mac_tag
+        return EncryptionService._wrap_text(record.pk, ciphertext), mac_tag
 
     @staticmethod
     def decrypt_message(sender, recipient, ciphertext: str, mac_tag: str) -> str:
-        raw_ciphertext = base64.b64decode(ciphertext, validate=True)
+        key_id, raw_ciphertext = EncryptionService._unwrap_text(ciphertext)
         if not verify_mac(raw_ciphertext, EncryptionService._mac_key(sender, recipient), mac_tag):
             raise ValueError("message MAC verification failed")
-        record = EncryptionService._key_record(recipient, KeyRecord.Algorithm.ECC)
+        record = EncryptionService._record_for_decrypt(recipient, KeyRecord.Algorithm.ECC, key_id)
         plaintext = ECCCipher.decrypt(raw_ciphertext, KeyManagementModule.get_private_key(record))
         return plaintext.decode("utf-8")
 
@@ -95,18 +135,30 @@ class EncryptionService:
     def encrypt_post(owner, image_bytes: bytes, caption: str) -> tuple:
         record = EncryptionService._key_record(owner, KeyRecord.Algorithm.RSA)
         public_key = EncryptionService._public_key(record)
-        encrypted_image = EncryptionService._rsa_encrypt_chunks(image_bytes, public_key)
-        encrypted_caption = base64.b64encode(
-            EncryptionService._rsa_encrypt_chunks(caption.encode("utf-8"), public_key)
-        ).decode("ascii")
+        encrypted_image = EncryptionService._wrap_binary(
+            record.pk, EncryptionService._rsa_encrypt_chunks(image_bytes, public_key)
+        )
+        encrypted_caption = EncryptionService._wrap_text(
+            record.pk, EncryptionService._rsa_encrypt_chunks(caption.encode("utf-8"), public_key)
+        )
         return encrypted_image, encrypted_caption
 
     @staticmethod
     def decrypt_post(owner, encrypted_image_bytes: bytes, encrypted_caption: str) -> tuple:
-        record = EncryptionService._key_record(owner, KeyRecord.Algorithm.RSA)
-        private_key = KeyManagementModule.get_private_key(record)
-        image = EncryptionService._rsa_decrypt_chunks(encrypted_image_bytes, private_key)
+        image_key_id, raw_image = EncryptionService._unwrap_binary(encrypted_image_bytes)
+        caption_key_id, raw_caption = EncryptionService._unwrap_text(encrypted_caption)
+
+        image_record = EncryptionService._record_for_decrypt(
+            owner, KeyRecord.Algorithm.RSA, image_key_id
+        )
+        caption_record = EncryptionService._record_for_decrypt(
+            owner, KeyRecord.Algorithm.RSA, caption_key_id
+        )
+
+        image = EncryptionService._rsa_decrypt_chunks(
+            raw_image, KeyManagementModule.get_private_key(image_record)
+        )
         caption = EncryptionService._rsa_decrypt_chunks(
-            base64.b64decode(encrypted_caption, validate=True), private_key
+            raw_caption, KeyManagementModule.get_private_key(caption_record)
         ).decode("utf-8")
         return image, caption

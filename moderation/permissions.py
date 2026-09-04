@@ -23,6 +23,7 @@ class Permission:
     REVOKE_USER_SESSIONS = "revoke_user_sessions"
 
     VIEW_RAW_DATABASE = "view_raw_database"
+    ROTATE_KEYS = "rotate_keys"
     CREATE_ADMIN = "create_admin"
     REMOVE_ADMIN = "remove_admin"
     BAN_ADMIN = "ban_admin"
@@ -47,6 +48,7 @@ ROLE_PERMISSIONS = {
     }),
     Role.DEVELOPER: frozenset({
         Permission.VIEW_RAW_DATABASE,
+        Permission.ROTATE_KEYS,
         Permission.CREATE_ADMIN,
         Permission.REMOVE_ADMIN,
         Permission.BAN_ADMIN,

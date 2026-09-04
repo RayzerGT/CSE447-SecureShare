@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-    document.querySelectorAll(".messages .message").forEach((el) => {
+    document.querySelectorAll(".messages .message:not(.sticky)").forEach((el) => {
         setTimeout(() => {
             el.style.transition = "opacity 0.4s ease";
             el.style.opacity = "0";

@@ -21,11 +21,34 @@
         <div class="list-head">Key records <span class="text-muted">({{ key_records|length }} rows)</span></div>
         <div class="table-scroll">
             <table class="raw-table">
-                <thead><tr><th>ID</th><th>Owner</th><th>Algorithm</th><th>Public key</th><th>Encrypted private key</th><th>Active</th></tr></thead>
+                <thead><tr><th>ID</th><th>Owner</th><th>Algorithm</th><th>Public key</th><th>Encrypted private key</th><th>Status</th><th>Rotation</th></tr></thead>
                 <tbody>
                     {% for key in key_records %}
-                    <tr><td>{{ key.id }}</td><td>{{ key.owner.username }}</td><td>{{ key.algorithm }}</td><td><code class="wrap">{{ key.public_key }}</code></td><td><code class="wrap">{{ key.encrypted_private_key }}</code></td><td>{{ key.is_active }}</td></tr>
-                    {% empty %}<tr><td colspan="6" class="text-muted">No key records yet.</td></tr>{% endfor %}
+                    <tr>
+                        <td>{{ key.id }}</td>
+                        <td>{{ key.owner.username }}</td>
+                        <td>{{ key.algorithm }}</td>
+                        <td><code class="wrap">{{ key.public_key }}</code></td>
+                        <td><code class="wrap">{{ key.encrypted_private_key }}</code></td>
+                        <td>
+                            {% if key.is_active %}<span class="badge active">Active</span>
+                            {% else %}<span class="badge">Retired</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if key.is_active %}
+                            <form method="post" action="{% url 'portal:rotate_key' %}" class="inline-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="user_id" value="{{ key.owner_id }}">
+                                <input type="hidden" name="algorithm" value="{{ key.algorithm }}">
+                                <button type="submit" class="secondary sm"
+                                        data-confirm="Rotate the {{ key.algorithm|upper }} key for {{ key.owner.username }}? Existing data stays readable.">Rotate</button>
+                            </form>
+                            {% else %}
+                            <span class="text-muted">retired {{ key.rotated_at|default:"" }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}<tr><td colspan="7" class="text-muted">No key records yet.</td></tr>{% endfor %}
                 </tbody>
             </table>
         </div>
