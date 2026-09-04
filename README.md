@@ -1,275 +1,226 @@
 # SecureShare
 
-CSE447 project (BRACU_flex, Group 05) — a security-first, Instagram-like
-photo sharing app. This is the full skeleton: routing, models, views, and
-templates for every feature are wired up and runnable, but the graded
-cryptographic/security internals (custom RSA/ECC, hashing+salting, 2FA, RBAC
-decision logic, secure session tokens, MAC) are intentionally left as
-clearly marked `TODO(<name>):` stubs.
+A security-first, friends-only photo sharing web application, similar in
+layout to Instagram. Users create a profile, send and accept friend
+requests, upload photos with captions, like and comment on posts, and
+exchange direct messages. Visibility is strictly friend-based — you only
+ever see posts belonging to you or to an accepted friend. There is no
+public feed.
 
-**New here? Start with `SETUP.md`** — a short numbered checklist to get the
-app running on your machine. This file has the fuller reference/explanation.
+The point of the project is what happens underneath. Every sensitive value
+is encrypted or hashed before it reaches the database, and all of the
+cryptography is written from scratch rather than imported:
 
-**Building any UI?** See `FRONTEND.md` — the whole site shares one dark
-retro-neon design system (shared CSS + component classes), and every new
-page must follow it. Copy `templates/_page_template.html` to start a new
-page rather than writing HTML from scratch.
+- **RSA** (1024-bit, PKCS#1 v1.5) — profile contact details, post captions,
+  post images, avatars, and the wrapping of every stored private key.
+- **ECC** (secp256k1, EC-ElGamal) — direct messages.
+- **SHA-256** — password hashing, with a unique 16-byte salt per user.
+- **HMAC-SHA256** — integrity tags on every encrypted record, and the
+  TOTP codes used for two-factor authentication.
 
-**See `todo.txt` in this same folder for exactly who is building what** —
-task ownership doesn't follow app boundaries exactly (e.g. `accounts/` is
-split between two people; `posts/` is split between two different people).
-Grep your own name to find your work:
+No cryptographic library is used anywhere in the security path; `hashlib`,
+`hmac`, `cryptography` and `pycryptodome` appear nowhere in the project.
+
+The application also implements a Key Management Module with key rotation,
+role-based access control across three roles, moderation tooling, an audit
+log, and session management with absolute timeouts and device binding.
+
+Uploaded images are never stored as files. They are encrypted and kept as
+blobs in the database, and served only through endpoints that check who is
+asking.
+
+---
+
+## Running it locally
+
+Roughly five minutes. The default setup uses SQLite, so there is no
+database server to install and no credentials to configure.
+
+### 1. Check your Python version
 
 ```bash
-grep -rn "TODO(Afnan Satter)" .
-grep -rn "TODO(Mos. Mahabuba Akter Munia)" .
-grep -rn "TODO(Razeen Hassan)" .
+python --version
 ```
 
-Registration and login are fully functional and backed by a real MySQL
-database: registering writes rows to `auth_user`, `accounts_profile`, and
-`accounts_twofactorsettings`; logging in authenticates against the stored
-(hashed) password and writes/updates an `accounts_activesession` row.
+Python 3.10 or newer. The project was built on 3.13.3. If `python` is not
+found, try `python3` and use that everywhere below.
 
-## Session management
+### 2. Get the code
 
-Implemented and enforced (not just a UI mockup): once a user logs in, a
-session is started that ends **5 minutes later** (configurable), regardless
-of activity (absolute timeout, not idle/sliding).
+```bash
+git clone https://github.com/RayzerGT/CSE447-SecureShare.git
+cd CSE447-SecureShare
+```
 
-1. **`accounts.models.ActiveSession`** gets `expires_at = login time +
-   SESSION_TIMEOUT_MINUTES` (env var — see `.env`, currently `5`).
-2. **`accounts.security.session_manager.SecureSessionMiddleware`** checks
-   every authenticated request against that timestamp. Once it's passed, it
-   marks the session revoked in the database, force-logs the user out
-   server-side, and shows a "Your session expired after N minute(s)" message.
+### 3. Create and activate a virtual environment
 
-This is deliberately decoupled from Django's own `SESSION_COOKIE_AGE` (kept
-at a generous 1 day as a ceiling) via a separate `SESSION_TIMEOUT_MINUTES` /
-`APP_SESSION_TIMEOUT_SECONDS` setting, so the enforced cutoff is something
-*this app* controls, not an incidental side effect of the browser cookie
-expiring on its own.
+```bash
+python -m venv .venv
+```
 
-The account security dashboard (`/accounts/sessions/`) lists each session's
-expiry time and live status (Active / Expired / Revoked).
+Then activate it:
 
-## RBAC: roles, permissions, and the single login
+| Platform | Command |
+|---|---|
+| Windows (PowerShell) | `.venv\Scripts\Activate.ps1` |
+| Windows (cmd) | `.venv\Scripts\activate.bat` |
+| macOS / Linux | `source .venv/bin/activate` |
 
-Three roles (`accounts.models.Role`): Standard User, Admin, and Developer -
-hierarchy Developer > Admin > User, but **not** in the sense of "higher
-role can do everything a lower role can." Each role is walled off to
-*only* its own area:
+Your prompt should now start with `(.venv)`. You need to do this every time
+you open a new terminal for this project — if a later command reports "no
+module named django", this is almost always why.
 
-- **Standard User** — the social site (feed/upload/messaging/social). No
-  access to `/moderation/` or `/portal/`.
-- **Admin** — `/moderation/` only. No feed/upload/messaging, no `/portal/`.
-  Can lock/suspend/ban **Standard User accounts only** — cannot touch
-  other Admin or Developer accounts, and cannot create new admins.
-- **Developer** — `/portal/` only. No feed/upload/messaging, no
-  `/moderation/`. Two separate menus: grant/revoke the Admin role, and
-  separately lock/suspend/ban Standard User accounts (the same power
-  Admins have over users) — kept apart from each other.
+### 4. Install the dependencies
 
-This is enforced twice over: `moderation.permissions.RoleAccessMiddleware`
-redirects Admin/Developer accounts away from anything outside their own
-area (so it's not just hidden nav links — the routes themselves are
-blocked), and every management view scopes its queryset/target lookup by
-role, so even a hand-crafted POST against the right URL gets a 404 if the
-target account is the wrong role. Both were verified live, not just
-written: an Admin session was confirmed blocked from the feed, upload,
-messaging, *and* the developer portal; a Developer session was confirmed
-blocked from the feed/upload/messaging and the admin panel; and a crafted
-request to ban an Admin account through the Admin's own user-management
-endpoint was confirmed to 404 rather than silently succeed.
+```bash
+pip install -r requirements-sqlite.txt
+```
 
-Admin and Developer are separate privilege tiers, neither implying the
-other. **Each account holds exactly one role, by design** — an account is a
-Standard User, an Admin, or a Developer, and stays that one thing. Someone
-who needs two sets of powers gets two accounts. That single-role rule is
-what makes one shared login page possible (below).
+This is the normal `requirements.txt` minus `mysqlclient`, the one package
+that needs a C compiler and the MySQL client libraries. You do not need it
+while you are on SQLite.
 
-- **One login page — `/accounts/login/`** — used by every account,
-  whatever its role. There is no separate admin/developer portal login.
-  On success, the account's single role decides where it lands
-  (`moderation.permissions.home_url_for`). Sharing the page does not widen
-  anyone's access: the permission matrix and `RoleAccessMiddleware` still
-  govern what each role can reach.
-- **2FA** applies to Standard Users only; Admin and Developer accounts
-  skip it and go straight to their panel.
-- **Admins** land on `/moderation/` — dashboard (total/banned/suspended
-  user counts, active sessions, pending reports), user management
-  (lock/suspend/ban Standard Users only), content moderation, and a
-  **Reports** menu showing posts regular users have flagged
-  (`/moderation/reports/`) with delete-post / dismiss actions.
-- **Developers** land on `/portal/developer/` — a raw database viewer
-  (literal `auth_user`/`accounts_profile` column values: username, email,
-  password hash, role, raw contact info) in a wider layout than the rest
-  of the site (better for dense tables — see FRONTEND.md's `wide`
-  container variant). This exists specifically to demonstrate to faculty
-  that the hashing/encryption requirements are actually in effect — once
-  those are implemented for real, this page's output *is* the proof (hash
-  strings and ciphertext instead of plaintext). Two menus from here:
-  `/portal/admins/` (grant/revoke the Admin role — the only place that can
-  happen) and `/portal/users/` (lock/suspend/ban Standard Users).
+### 5. Create your `.env` file
 
-Regular users can report a post from its detail page; that both flags it
-for the existing content-moderation view and creates a `Report` row admins
-can act on.
+```bash
+cp .env.example .env        # Windows: copy .env.example .env
+```
 
-## Databases: SQLite for development, Aiven MySQL for the demo
+Open `.env` and set two values.
 
-The project runs on **either** backend, selected by one line in your `.env`:
+**`SECRET_KEY`** — any long random string:
 
-| `DB_ENGINE` | What it uses | When |
-|---|---|---|
-| `sqlite` *(default)* | a local `db.sqlite3` file | everyday development |
-| `mysql` | the shared Aiven MySQL 8.4 server | the project demonstration, and any work that needs the shared data |
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(50))"
+```
 
-The application code and migrations are **identical** for both — switching is
-never a code change. Check where you are with `python manage.py dbinfo`.
+**`KMM_MASTER_KEY`** — the root of trust for the Key Management Module.
+Every private key and every integrity tag is derived from it, so if you
+leave it blank the app generates a throwaway key at startup and your
+encrypted data stops decrypting the moment you restart the server:
 
-**Why SQLite for development:** no credentials, no network, no MySQL install,
-and your experiments can't disturb anyone else. Start from nothing with:
+```bash
+python -c "from crypto_core.key_management.master_key import generate_master_key_env_line; print(generate_master_key_env_line())"
+```
+
+That prints a complete `KMM_MASTER_KEY=...` line — paste it in, replacing
+the empty one.
+
+Leave `DB_ENGINE=sqlite` as it is. You can ignore every `MYSQL_*` line;
+they are only read when `DB_ENGINE=mysql`.
+
+`.env` is gitignored and never gets committed.
+
+### 6. Create the database
 
 ```bash
 python manage.py migrate
+```
+
+This creates `db.sqlite3` in the project folder and builds every table.
+That file is gitignored, so your local data is yours alone.
+
+### 7. Load the sample data
+
+```bash
 python manage.py seed_demo
 ```
 
-**Step-by-step SQLite instructions live in `SQLITE_SETUP.txt`** — start there
-if you're setting up a machine for the first time. There is nothing to install
-for SQLite; it ships inside Python. `requirements-sqlite.txt` even lets you
-skip `mysqlclient`, the one dependency that needs a compiler.
+A fresh database has no users at all, so without this you cannot log in to
+anything. This creates one account for each of the three roles plus sample
+friends, posts, likes, comments, messages and reports, and **prints the
+usernames and passwords it created** when it finishes. It is safe to run
+again — it tops up what is missing instead of creating duplicates.
 
-`seed_demo` creates the team's standard logins plus sample friends, posts,
-messages and reports (see `SETUP.md` for the account table). It's idempotent,
-and it refuses to run against the shared database unless you pass
-`--allow-shared`.
+### 8. Run the server
 
-**One thing to watch:** a migration you generate on SQLite still has to reach
-MySQL. Commit the migration file; whoever is on `mysql` runs `migrate` there.
-Before the demonstration, switch to `DB_ENGINE=mysql` and run `dbinfo` to
-confirm the shared DB is reachable and fully migrated.
+```bash
+python manage.py runserver
+```
 
-### The shared Aiven database
+Open **http://127.0.0.1:8000/accounts/login/** and sign in with one of the
+accounts `seed_demo` printed. Stop the server with `Ctrl+C`.
 
-**Live and confirmed working:** a central MySQL 8.4 database hosted on Aiven
-(free tier). This is what the demonstration runs against, and it's where
-shared test data lives, so everyone sees the same state. All migrations are
-already applied to it.
+Use `127.0.0.1` rather than `localhost`. They are different origins as far
+as the browser is concerned, and the Google sign-in redirect is registered
+against `127.0.0.1`.
 
-The real host/port/username/password are deliberately **not** written down
-here or anywhere else in this repo (avoid publishing live infrastructure
-endpoints, even to a private repo) — get them from a teammate directly
-(chat/DM), and drop them into your own local `.env`, copied from
-`.env.example`. `.env` is gitignored; it should be the only place these
-values ever live on disk.
+---
 
-Aiven requires an encrypted connection - keep `MYSQL_SSL_MODE=REQUIRED` in
-your `.env` for this database (no certificate file needed; verified working
-with `mysqlclient`). Don't remove it.
+## Optional extras
 
-If you're working offline or the shared DB is unreachable, use
-`DB_ENGINE=sqlite` (above) — that's the simplest fallback. You can also point
-`.env` at a local MySQL/MariaDB instance instead; only the `.env` values
-change. If your local MySQL doesn't have SSL configured, set
-`MYSQL_SSL_MODE=` (empty) too.
+**Google sign-in.** The "Sign in with Google" button only appears once
+`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` and
+`GOOGLE_OAUTH_REDIRECT_URI` are set in `.env`. Create the credentials in
+the Google Cloud Console under *APIs & Services → Credentials → OAuth
+client ID → Web application*, and register
+`http://127.0.0.1:8000/accounts/google/callback/` as an authorised redirect
+URI. Without these the button stays hidden and password login works
+normally.
 
-## System requirements
+**Two-factor authentication.** Standard Users can enable TOTP from the
+Security page. Because the codes are built on SHA-256 rather than SHA-1,
+you need an authenticator that honours the algorithm parameter — Aegis,
+FreeOTP, Bitwarden or 1Password. Google Authenticator always assumes SHA-1
+and its codes will not match.
 
-`requirements.txt` pins exact Python package versions; `.env.example` lists
-every environment variable the app reads. Nothing else is required beyond
-what's below.
+**Using MySQL instead.** Set `DB_ENGINE=mysql` in `.env`, fill in the
+`MYSQL_*` values, and install the full `requirements.txt` (which includes
+`mysqlclient`). The application code and migrations are identical for both
+backends; switching is never a code change.
 
-| Requirement | Version | Notes |
-|---|---|---|
-| Python | 3.13 (tested on 3.13.3) | 3.10+ should work |
-| pip packages | see `requirements.txt` | exact versions pinned for reproducibility |
-| MySQL or MariaDB server | MySQL 8.0+, or MariaDB 10.4+ | see version note below |
-| OS | Windows, macOS, or Linux | only the DB-driver install step differs (below) |
+---
 
-**Django / MariaDB version compatibility:** `requirements.txt` pins
-`Django==5.0.14` because the reference dev environment used MariaDB 10.4.32,
-and Django 5.1+ raises the minimum supported MariaDB version to 10.5. If the
-shared database is MySQL 8.0+ or MariaDB 10.5+, you can safely relax that
-pin to a newer Django 5.x release.
+## Useful commands
 
-**Installing mysqlclient (the Python↔MySQL driver) per OS:**
-- **Windows:** `pip install -r requirements.txt` just works — a prebuilt
-  wheel is available, no compiler or extra setup needed.
-- **macOS:** install the MySQL client libraries first (`brew install mysql-client
-  pkg-config`), then `pip install -r requirements.txt`. You may need
-  `export PKG_CONFIG_PATH="/opt/homebrew/opt/mysql-client/lib/pkgconfig"`
-  (Apple Silicon) or the Intel-equivalent path first if pip can't find them.
-- **Linux (Debian/Ubuntu):** `sudo apt install default-libmysqlclient-dev build-essential pkg-config`
-  first, then `pip install -r requirements.txt`.
-- If you'd rather avoid native build dependencies entirely, `mysqlclient`
-  can be swapped for the pure-Python `pymysql` package (`pip install pymysql`,
-  then add `import pymysql; pymysql.install_as_MySQLdb()` to the top of
-  `secureshare/__init__.py`).
+| Command | What it does |
+|---|---|
+| `python manage.py dbinfo` | Shows which database backend is active and whether migrations are up to date |
+| `python manage.py seed_demo` | Creates the demo accounts and sample content |
+| `python manage.py check` | Catches configuration and model errors |
+| `python manage.py secure_media` | Encrypts any plaintext image left in `media/`, then deletes the plaintext file |
+| `python manage.py backfill_post_thumbnails` | Re-encodes older posts so they have an encrypted thumbnail |
 
-## Setup (each teammate, on their own machine)
+The last two only matter when upgrading a database that predates image
+encryption. A fresh install created with `migrate` and `seed_demo` never
+needs them.
 
-1. **Python env + dependencies**
-   ```bash
-   python -m venv .venv
-   ```
-   Activate it — Windows: `.venv\Scripts\activate`; macOS/Linux: `source .venv/bin/activate` — then:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **Configure environment variables**
-   ```bash
-   cp .env.example .env   # Windows: copy .env.example .env
-   ```
-   Fill in `SECRET_KEY` (any long random string —
-   `python -c "import secrets; print(secrets.token_urlsafe(50))"` generates
-   one) and the `MYSQL_*` values for the shared database (see "Shared team
-   database" above).
-
-3. **Migrate & run**
-   ```bash
-   python manage.py migrate
-   python manage.py createsuperuser   # optional, for /django-admin/
-   python manage.py runserver
-   ```
-
-4. Visit `http://127.0.0.1:8000/accounts/register/` to create an account,
-   then log in at `http://127.0.0.1:8000/accounts/login/`.
-
-Migrations are already generated and committed for every app — no need to
-run `makemigrations` unless you change a model.
+---
 
 ## Project layout
 
 ```
-secureshare/   Django project settings/urls (the config package, not an app)
-accounts/      Login, Registration, 2FA, session management, profile
-crypto_core/   RSA, ECC, Key Management Module, MAC, encryption facade
-posts/         Photo feed: creation and encryption (posts are friends-only)
-messaging/     Encrypted 1-on-1 direct messages (friends only)
-social/        Likes, comments, and the friends system
-moderation/    RBAC core, admin panel, audit log, user/role management,
-               content moderation
-templates/, static/  shared UI shell (base.html, navbar, css, js)
-templates/_page_template.html  copy this to start any new page
-todo.txt       per-member task breakdown - the authoritative ownership doc
-SETUP.md       short numbered setup checklist (start here on a new machine)
-FRONTEND.md    the design system - read before building any UI
+secureshare/   Django settings, URLs, middleware chain
+crypto_core/   All from-scratch cryptography
+  asymmetric/    rsa_scratch.py, ecc_scratch.py
+  mac/           hmac_scratch.py
+  key_management/  kmm.py, master_key.py
+  media_vault.py, encryption_service.py
+accounts/      Registration, login, 2FA, profile, sessions
+  security/      hashing.py, two_factor.py, session_manager.py
+posts/         Upload, feed, encryption, image serving
+messaging/     Encrypted direct messages
+social/        Friends, likes, comments, search
+moderation/    Reports, admin panel, developer portal, audit log
+templates/     Shared base template and partials
+static/        CSS and JavaScript
 ```
 
-`todo.txt` has the real detail (down to which function in which file); the
-list above is just the map of apps to feature areas.
+---
 
-## Notes
+## Troubleshooting
 
-- All from-scratch crypto requirements (RSA, ECC, password hashing, MAC)
-  must NOT use built-in framework or library implementations.
-- Input sanitization / XSS protection for comments was considered and
-  dropped from scope (it was only in the team's own project proposal, not
-  the graded requirements doc) — see `todo.txt`'s notes section.
-- Run `python manage.py check` after any change to catch config/model errors early.
-- If you restart `manage.py runserver` and your code changes don't seem to
-  take effect, check for a stale old server process still bound to port 8000
-  and kill it. Windows: `netstat -ano | findstr :8000`; macOS/Linux: `lsof -i :8000`.
+**"No module named django"** — the virtual environment is not active. See
+step 3.
+
+**Encrypted data suddenly will not decrypt after a restart** —
+`KMM_MASTER_KEY` is empty in your `.env`. See step 5. If it was empty while
+you created data, that data cannot be recovered; delete `db.sqlite3` and
+re-run steps 6 and 7.
+
+**Code changes do not take effect** — an old server process may still be
+bound to port 8000. Find it with `netstat -ano | findstr :8000` on Windows,
+or `lsof -i :8000` on macOS and Linux, and stop it.
+
+**Google sign-in reports "invalid or expired request"** — you opened the
+site on `localhost` instead of `127.0.0.1`. See step 8.
