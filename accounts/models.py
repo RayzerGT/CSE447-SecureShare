@@ -15,6 +15,8 @@ class Profile(models.Model):
     full_name = models.CharField(max_length=150, blank=True)
     bio = models.TextField(blank=True)
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
+    encrypted_avatar_blob = models.BinaryField(blank=True, null=True)
+    avatar_mac_tag = models.CharField(max_length=255, blank=True)
 
     encrypted_contact_info = models.TextField(blank=True, help_text="Ciphertext blob (contact info).")
 

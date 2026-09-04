@@ -58,8 +58,8 @@ ROLE_PERMISSIONS = {
 }
 
 ROLE_ALLOWED_PREFIXES = {
-    Role.ADMIN: ("/moderation/", "/accounts/logout/", "/static/", "/media/"),
-    Role.DEVELOPER: ("/portal/", "/accounts/logout/", "/static/", "/media/"),
+    Role.ADMIN: ("/moderation/", "/accounts/logout/", "/accounts/avatar/", "/static/"),
+    Role.DEVELOPER: ("/portal/", "/accounts/logout/", "/accounts/avatar/", "/static/"),
 }
 
 ROLE_HOME = {

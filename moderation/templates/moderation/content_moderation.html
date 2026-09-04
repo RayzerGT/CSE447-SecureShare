@@ -15,7 +15,7 @@
 <div class="mod-grid">
     {% for post in flagged_posts %}
     <div class="card flush mod-item">
-        <div class="mod-item__media"><img src="{% url 'posts:thumbnail' post.id %}" alt="Flagged post"></div>
+        <div class="mod-item__media"><img src="{% url 'moderation:reported_post_image' post.id %}" alt="Flagged post"></div>
         <div class="mod-item__body">
             <div class="cell-user">
                 {% include "_avatar.html" with u=post.owner size="sm" %}

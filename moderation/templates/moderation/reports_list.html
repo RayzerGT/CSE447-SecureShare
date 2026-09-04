@@ -30,7 +30,7 @@
     {% if report.kind == "post" %}
         <div class="ticket__quote">
             {{ report.post.display_caption|default:"(no caption)" }}
-            {% if report.post %}<img class="ticket__media" src="{% url 'posts:thumbnail' report.post.id %}" alt="Reported post">{% endif %}
+            {% if report.post %}<img class="ticket__media" src="{% url 'moderation:reported_post_image' report.post.id %}" alt="Reported post">{% endif %}
         </div>
     {% elif report.kind == "message" %}
         <div class="ticket__quote">

@@ -30,9 +30,10 @@
                         {{ message.display_body }}
                     </div>
                     {% endif %}
-                    {% if message.image %}
+                    {% if message.encrypted_image_blob %}
                     <div class="bubble bubble--media">
-                        <img src="{{ message.image.url }}" alt="Photo from {{ message.sender.username }}">
+                        <img src="{% url 'messaging:message_image' message.id %}?v={{ message.image_mac_tag|slice:':8' }}"
+                             alt="Photo from {{ message.sender.username }}" loading="lazy" decoding="async">
                     </div>
                     {% endif %}
                 </div>

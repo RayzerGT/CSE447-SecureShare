@@ -1,8 +1,9 @@
 
 {% if ring %}<span class="avatar-ring">{% endif %}
 <span class="avatar{% if size %} avatar--{{ size }}{% endif %}">
-    {% if u.profile.avatar %}
-        <img src="{{ u.profile.avatar.url }}" alt="{{ u.username }}">
+    {% if u.profile.encrypted_avatar_blob %}
+        <img src="{% url 'accounts:avatar_image' u.username %}?v={{ u.profile.avatar_mac_tag|slice:':8' }}"
+             alt="{{ u.username }}" loading="lazy" decoding="async">
     {% else %}
         {{ u.username|first|upper }}
     {% endif %}

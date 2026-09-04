@@ -8,6 +8,8 @@ class Message(models.Model):
     plaintext_body = models.TextField(blank=True)
 
     image = models.ImageField(upload_to="messages/", blank=True, null=True)
+    encrypted_image_blob = models.BinaryField(blank=True, null=True)
+    image_mac_tag = models.CharField(max_length=255, blank=True)
 
     ciphertext = models.TextField(blank=True)
     mac_tag = models.CharField(max_length=255, blank=True)

@@ -80,11 +80,9 @@ def upload(request):
             post.owner = request.user
             uploaded_image = form.cleaned_data["image"]
             full_image, thumbnail = prepare_upload(uploaded_image.read())
+            post.image = uploaded_image.name
             encrypt_and_store(post, full_image, form.cleaned_data["caption"], thumbnail)
             post.save()
-            image_name = post.image.name
-            post.image.delete(save=False)
-            post.image.name = image_name
             seal_caption(post)
             post.save(
                 update_fields=[
@@ -145,7 +143,7 @@ def edit(request, post_id):
                 ]
             )
             if uploaded_image:
-                post.image.name = uploaded_image.name
+                post.image = uploaded_image.name
                 post.save(update_fields=["image"])
             return redirect("posts:detail", post_id=post.id)
     else:

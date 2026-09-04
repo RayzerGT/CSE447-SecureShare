@@ -3,9 +3,9 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login as django_login, logout as django_logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.core.files.base import ContentFile
 from django.db.models import Count, Q
-from django.shortcuts import redirect, render
+from django.http import Http404, HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.safestring import mark_safe
 
 from .forms import LoginForm, ProfileForm, RegistrationForm, TwoFactorForm
@@ -19,7 +19,9 @@ from .security import session_manager, two_factor
 
 from moderation.models import AccountState
 from moderation.logging_service import log_event
+from crypto_core import media_vault
 from crypto_core.encryption_service import EncryptionService
+from posts.imaging import CONTENT_TYPE, prepare_avatar
 
 from moderation.permissions import home_url_for, role_of
 
@@ -58,7 +60,17 @@ def register(request):
                 fetched = google_oauth.download_profile_picture(google_profile["picture"])
                 if fetched is not None:
                     picture_bytes, extension = fetched
-                    profile.avatar.save(f"google_{user.pk}.{extension}", ContentFile(picture_bytes), save=True)
+                    try:
+                        blob, tag = media_vault.seal(
+                            user, _avatar_context(profile), prepare_avatar(picture_bytes)
+                        )
+                    except Exception:
+                        blob, tag = None, ""
+                    if blob is not None:
+                        profile.avatar = f"google_{user.pk}.{extension}"
+                        profile.encrypted_avatar_blob = blob
+                        profile.avatar_mac_tag = tag
+                        profile.save(update_fields=["avatar", "encrypted_avatar_blob", "avatar_mac_tag"])
 
             request.session.pop("pending_google_profile", None)
             return redirect("accounts:login")
@@ -97,17 +109,18 @@ def google_login_callback(request):
             messages.error(request, AccountState.block_message_for(user), extra_tags="sticky")
             return redirect("accounts:login")
 
-        if two_factor.is_required_for(user):
+        if role_of(user) == Role.USER and two_factor.is_required_for(user):
             request.session["pending_2fa_user_id"] = user.pk
             return redirect("accounts:verify_2fa")
 
         django_login(request, user)
         session_manager.issue_session(request, user, device_info=request.META.get("HTTP_USER_AGENT", ""))
+        log_event(user, "login_google", request=request)
         messages.success(
             request,
             f"Logged in with Google. This session will expire in {settings.SESSION_TIMEOUT_MINUTES} minute(s).",
         )
-        return redirect("posts:feed")
+        return redirect(home_url_for(user))
 
     request.session["pending_google_profile"] = profile
     return redirect("accounts:register")
@@ -232,12 +245,51 @@ def profile_view(request, username=None):
     return render(request, "accounts/profile.html", context)
 
 @login_required
+def _avatar_context(profile) -> str:
+    return f"secureshare-avatar:{profile.user_id}"
+
+
+@login_required
+def avatar_image(request, username):
+    owner = get_object_or_404(User, username=username)
+    viewer_role = role_of(request.user)
+    moderator = viewer_role in (Role.ADMIN, Role.DEVELOPER)
+    if owner.pk != request.user.pk and not moderator and not Friendship.are_friends(request.user, owner):
+        raise Http404("Avatar not available.")
+
+    profile = getattr(owner, "profile", None)
+    if profile is None or not profile.encrypted_avatar_blob:
+        raise Http404("This account has no profile photo.")
+
+    image_bytes = media_vault.open_sealed(
+        owner, _avatar_context(profile), profile.encrypted_avatar_blob, profile.avatar_mac_tag
+    )
+    response = HttpResponse(image_bytes, content_type=CONTENT_TYPE)
+    response["Cache-Control"] = "private, max-age=86400"
+    response["Content-Length"] = str(len(image_bytes))
+    return response
+
+
+@login_required
 def profile_edit(request):
     profile, _ = Profile.objects.get_or_create(user=request.user)
     if request.method == "POST":
         form = ProfileForm(request.POST, request.FILES, instance=profile)
         if form.is_valid():
-            form.save()
+            upload = request.FILES.get("avatar")
+            profile = form.save(commit=False)
+            if upload is not None:
+                profile.avatar = upload.name
+            profile.save()
+
+            if upload is not None:
+                media_vault.forget(_avatar_context(profile), profile.avatar_mac_tag)
+                blob, tag = media_vault.seal(
+                    request.user, _avatar_context(profile), prepare_avatar(upload.read())
+                )
+                profile.encrypted_avatar_blob = blob
+                profile.avatar_mac_tag = tag
+                profile.save(update_fields=["encrypted_avatar_blob", "avatar_mac_tag"])
             return redirect("accounts:profile")
     else:
         form = ProfileForm(instance=profile)

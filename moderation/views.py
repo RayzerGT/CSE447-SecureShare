@@ -1,13 +1,15 @@
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from accounts.models import ActiveSession, Role
 from crypto_core.encryption_service import EncryptionService
 from messaging.models import Message
-from posts.encryption import decrypt_caption
+from posts.encryption import decrypt_caption, decrypt_image
+from posts.imaging import CONTENT_TYPE
 from posts.models import Post
 from social.models import Comment
 
@@ -40,6 +42,17 @@ def audit_logs(request):
     if query:
         logs = logs.filter(action__icontains=query)
     return render(request, "moderation/audit_logs.html", {"logs": logs[:200], "query": query})
+
+@login_required
+@admin_required
+def reported_post_image(request, post_id):
+    post = get_object_or_404(Post, pk=post_id)
+    image_bytes = decrypt_image(post, prefer_thumbnail=True)
+    response = HttpResponse(image_bytes, content_type=CONTENT_TYPE)
+    response["Cache-Control"] = "private, max-age=3600"
+    response["Content-Length"] = str(len(image_bytes))
+    return response
+
 
 def _preview_post(post):
     if post is None:

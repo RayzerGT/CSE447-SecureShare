@@ -1,15 +1,38 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db.models import Q
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
+from crypto_core import media_vault
 from crypto_core.encryption_service import EncryptionService
 from moderation.logging_service import log_event
+from posts.imaging import CONTENT_TYPE, prepare_attachment
 from social.models import Friendship
 
 from .forms import MessageForm
 from .models import Message
+
+def _image_context(message) -> str:
+    return f"secureshare-dm-image:{message.pk}"
+
+
+@login_required
+def message_image(request, message_id):
+    message = get_object_or_404(Message, pk=message_id)
+    if request.user.id not in (message.sender_id, message.recipient_id):
+        raise Http404("Message not found.")
+    if not message.encrypted_image_blob:
+        raise Http404("This message has no photo.")
+
+    image_bytes = media_vault.open_sealed(
+        message.recipient, _image_context(message), message.encrypted_image_blob, message.image_mac_tag
+    )
+    response = HttpResponse(image_bytes, content_type=CONTENT_TYPE)
+    response["Cache-Control"] = "private, max-age=86400"
+    response["Content-Length"] = str(len(image_bytes))
+    return response
+
 
 def _conversation_list(user):
     conversations = (
@@ -55,13 +78,26 @@ def thread(request, username):
         if form.is_valid():
             body = form.cleaned_data["body"]
             ciphertext, mac_tag = EncryptionService.encrypt_message(request.user, partner, body)
-            Message.objects.create(
+            message = Message(
                 sender=request.user,
                 recipient=partner,
                 ciphertext=ciphertext,
                 mac_tag=mac_tag,
-                image=form.cleaned_data.get("image"),
             )
+
+            upload = request.FILES.get("image")
+            if upload is not None:
+                message.image = upload.name
+            message.save()
+
+            if upload is not None:
+                blob, tag = media_vault.seal(
+                    partner, _image_context(message), prepare_attachment(upload.read())
+                )
+                message.encrypted_image_blob = blob
+                message.image_mac_tag = tag
+                message.save(update_fields=["encrypted_image_blob", "image_mac_tag"])
+
             log_event(request.user, "message_sent", target=partner, request=request)
             return redirect("messaging:thread", username=partner.username)
     else:
