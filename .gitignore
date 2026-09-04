@@ -6,6 +6,8 @@ db.sqlite3
 *.sqlite3
 *.sqlite3-journal
 /media/
+# Superseded team docs, kept locally in case they are needed again.
+/archive/
 /staticfiles/
 .venv/
 venv/
